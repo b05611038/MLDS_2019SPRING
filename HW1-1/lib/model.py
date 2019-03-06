@@ -11,8 +11,10 @@ class ANN(nn.Module):
 
         self.denses = nn.Sequential()
         self.denses.add_module('Dense_1', nn.Linear(1, unit))
+        self.denses.add_module('ReLU_1', nn.ReLU())
         for i in range(depth - 2):
             self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit))
+            self.denses.add_module('ReLU_' + str(i + 2), nn.ReLU())
 
         self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1))
 
