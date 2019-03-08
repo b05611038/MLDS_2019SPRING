@@ -1,6 +1,6 @@
-import os
 import sys
 import csv
+import time
 import copy
 import numpy as np
 import torch
@@ -74,6 +74,7 @@ def TrainModel(model, saving_name, dataset, criterion, device, save = False):
             history.append(str(iter) + ',' + str(float(train_loss.detach())) + ',' + str(float(test_loss.detach())) + '\n')
             train_loss = 0
 
+    print('Training process done.\nStart recording all history...')
     f = open(saving_name + '.csv', 'w')
     f.writelines(history)
     f.close()
@@ -81,8 +82,7 @@ def TrainModel(model, saving_name, dataset, criterion, device, save = False):
     if save:
         torch.save(model, saving_name + '.pkl')
 
-    print('All process done.')
-
+    print('History file saving done.')
 
 
 def target_function(x):
@@ -92,11 +92,13 @@ def target_function(x):
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print('Usage: python3 train.py [model depth] [model unit] [model name] [device]')
+        print('Usage: python3 train_FT.py [model depth] [model unit] [model name] [device]')
         exit(0)
 
+    start_time = time.time()
     model = ANN(depth = int(sys.argv[1]), unit = int(sys.argv[2]))
     dataset = SampleFunctionDataset(0.2, target_function, [0, 10], 100000)
     TrainModel(model, sys.argv[3], dataset, nn.MSELoss(), int(sys.argv[4]))
+    print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 

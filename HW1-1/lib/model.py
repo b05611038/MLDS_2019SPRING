@@ -19,8 +19,34 @@ class ANN(nn.Module):
         self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1))
 
     def forward(self, data):
-        out = self.denses(data)
+        x = self.denses(data)
 
-        return out
+        return x
+
+class CNN(nn.Module):
+    def __init__(self, depth, channel):
+        super(CNN, self).__init__()
+
+        self.depth = depth
+        self.channel = channel
+
+        self.conv = nn.Sequential()
+        self.conv.add_module('Conv_1', nn.Conv2d(3, channel, 3, padding = 1))
+        self.conv.add_module('ReLU_1', nn.ReLU())
+        for i in range(depth - 2):
+            self.conv.add_module('Conv_' + str(i + 2), nn.Conv2d(channel, channel, 3, padding = 1))
+            self.conv.add_module('ReLU_' + str(i + 2), nn.ReLU())
+
+        self.conv.add_module('Conv_' + str(depth), nn.Conv2d(channel, 10, 3, padding = 1))
+
+        self.avg = nn.AvgPool2d((32, 32), stride = (1, 1))
+
+    def forward(self, data):
+        x = self.conv(data)
+        x = self.avg(x)
+
+        x = x.view(-1, 10)
+
+        return x
 
 
