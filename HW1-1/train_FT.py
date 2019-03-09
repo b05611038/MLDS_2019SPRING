@@ -19,12 +19,12 @@ from lib.utils import SampleFunctionDataset
 def TrainModel(model, saving_name, dataset, criterion, device, save = True):
     if device < 0:
         env = torch.device('cpu')
+        print('Envirnment setting done, using device: cpu')
     else:
         torch.backends.cudnn.benchmark = True
         cuda.set_device(device)
         env = torch.device('cuda:' + str(device))
-
-    print('Envirnment setting done, using device: ' + str(torch.device))
+        print('Envirnment setting done, using device: CUDA_' + str(device))
 
     model.float().to(env)
     criterion.to(env)
