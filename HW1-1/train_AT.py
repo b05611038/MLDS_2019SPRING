@@ -16,7 +16,7 @@ from lib.model import ANN_cifar10, CNN
 #train_AT is to test the performance of different deep learning model whcih has 
 #same amount of parameters but different depth
 #--------------------------------------------------------------------------------
-def TrainModel(model, saving_name, criterion, epochs, device, save = False):
+def TrainModel(model, saving_name, criterion, epochs, device, save = True):
     if device < 0:
         env = torch.device('cpu')
     else:

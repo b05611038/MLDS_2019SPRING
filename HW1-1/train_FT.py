@@ -16,7 +16,7 @@ from lib.utils import SampleFunctionDataset
 #train_FT is to test the fitting ability of same numbers of parameters but the
 #depth of the model is differnet
 #--------------------------------------------------------------------------------
-def TrainModel(model, saving_name, dataset, criterion, device, save = False):
+def TrainModel(model, saving_name, dataset, criterion, device, save = True):
     if device < 0:
         env = torch.device('cpu')
     else:
@@ -86,9 +86,9 @@ def TrainModel(model, saving_name, dataset, criterion, device, save = False):
 
 
 def target_function(x):
-    x = 78 * x + 100
+    y = 4 * np.sin(np.exp(x / 8)) - 5 * np.cos(x) + np.exp(x / 8)
 
-    return x
+    return y
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     model = ANN(depth = int(sys.argv[1]), unit = int(sys.argv[2]))
-    dataset = SampleFunctionDataset(0.2, target_function, [0, 10], 100000)
+    dataset = SampleFunctionDataset(0.1, target_function, [0, 20], 100000)
     TrainModel(model, sys.argv[3], dataset, nn.MSELoss(), int(sys.argv[4]))
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
