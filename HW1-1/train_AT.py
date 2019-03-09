@@ -101,10 +101,10 @@ def TrainModel(model, saving_name, criterion, epochs, batch_size, device, save =
         test_loss = torch.tensor(test_loss)
         test_total = torch.tensor(test_total)
 
-        train_loss = (torch.sum(torch.mul(train_loss, train_total.float())) / torch.sum(train_total)).detach()
-        train_acc = (100 * train_correct / torch.sum(train_total)).detach()
-        test_loss = (torch.sum(torch.mul(test_loss, test_total.float())) / torch.sum(test_total)).detach()
-        test_acc = (100 * test_correct / torch.sum(test_total)).detach()
+        train_loss = float((torch.sum(torch.mul(train_loss, train_total.float())) / torch.sum(train_total)).detach())
+        train_acc = float((100 * train_correct / torch.sum(train_total)).detach())
+        test_loss = float((torch.sum(torch.mul(test_loss, test_total.float())) / torch.sum(test_total)).detach().numpy())
+        test_acc = float((100 * test_correct / torch.sum(test_total)).detach())
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) + ','
                 + str(test_loss) + ',' + str(test_acc) + '\n')
