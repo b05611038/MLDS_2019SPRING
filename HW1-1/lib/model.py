@@ -23,6 +23,29 @@ class ANN(nn.Module):
 
         return x
 
+class ANN_cifar10(nn.Module):
+    def __init__(self, depth, unit):
+        super(ANN_cifar10, self).__init__()
+
+        self.depth = depth
+        self.unit = unit
+
+        self.denses = nn.Sequential()
+        self.denses.add_module('Dense_1', nn.Linear(3072, unit))
+        self.denses.add_module('ReLU_1', nn.ReLU())
+        for i in range(depth - 2):
+            self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit))
+            self.denses.add_module('ReLU_' + str(i + 2), nn.ReLU())
+
+        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 10))
+
+    def forward(self, data):
+        x = data.view(data.size(0), -1)
+
+        x = self.denses(x)
+
+        return x
+
 class CNN(nn.Module):
     def __init__(self, depth, channel):
         super(CNN, self).__init__()

@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from lib.model import ANN, CNN
+from lib.model import ANN_cifar10, CNN
 #--------------------------------------------------------------------------------
 #train_AT is to test the performance of different deep learning model whcih has 
 #same amount of parameters but different depth
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     if sys.argv[1] == 'ANN':
-        model = ANN(depth = int(sys.argv[2]), unit = int(sys.argv[3]))
+        model = ANN_cifar10(depth = int(sys.argv[2]), unit = int(sys.argv[3]))
     elif sys.argv[1] == 'CNN':
         model = CNN(depth =  int(sys.argv[2]), channel = int(sys.argv[3]))
     else:
