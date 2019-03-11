@@ -42,6 +42,7 @@ def TrainModel(model, saving_name, criterion, epochs, batch_size, device, save =
 
     print('Model Structure:')
     print(model)
+    print('Model Parameter numbers: ',sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     history = ['Epoch,Train Loss,Train Acc.,Test Loss,Test Acc.\n']
     for epoch in range(epochs):

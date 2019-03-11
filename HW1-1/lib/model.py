@@ -10,13 +10,13 @@ class ANN(nn.Module):
         self.unit = unit
 
         self.denses = nn.Sequential()
-        self.denses.add_module('Dense_1', nn.Linear(1, unit))
+        self.denses.add_module('Dense_1', nn.Linear(1, unit, bias = False))
         self.denses.add_module('ReLU_1', nn.ReLU())
         for i in range(depth - 2):
-            self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit))
+            self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit, bias = False))
             self.denses.add_module('ReLU_' + str(i + 2), nn.ReLU())
 
-        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1))
+        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1, bias = False))
 
     def forward(self, data):
         x = self.denses(data)
@@ -31,13 +31,13 @@ class ANN_cifar10(nn.Module):
         self.unit = unit
 
         self.denses = nn.Sequential()
-        self.denses.add_module('Dense_1', nn.Linear(3072, unit))
+        self.denses.add_module('Dense_1', nn.Linear(3072, unit, bias = False))
         self.denses.add_module('ReLU_1', nn.ReLU())
         for i in range(depth - 2):
-            self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit))
+            self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit, bias = False))
             self.denses.add_module('ReLU_' + str(i + 2), nn.ReLU())
 
-        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 10))
+        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 10, bias = False))
 
     def forward(self, data):
         x = data.view(data.size(0), -1)
@@ -54,13 +54,13 @@ class CNN(nn.Module):
         self.channel = channel
 
         self.conv = nn.Sequential()
-        self.conv.add_module('Conv_1', nn.Conv2d(3, channel, 3, padding = 1))
+        self.conv.add_module('Conv_1', nn.Conv2d(3, channel, 3, padding = 1, bias = False))
         self.conv.add_module('ReLU_1', nn.ReLU())
         for i in range(depth - 2):
-            self.conv.add_module('Conv_' + str(i + 2), nn.Conv2d(channel, channel, 3, padding = 1))
+            self.conv.add_module('Conv_' + str(i + 2), nn.Conv2d(channel, channel, 3, padding = 1, bias = False))
             self.conv.add_module('ReLU_' + str(i + 2), nn.ReLU())
 
-        self.conv.add_module('Conv_' + str(depth), nn.Conv2d(channel, 10, 3, padding = 1))
+        self.conv.add_module('Conv_' + str(depth), nn.Conv2d(channel, 10, 3, padding = 1, bias = False))
 
         self.avg = nn.AvgPool2d((32, 32), stride = (1, 1))
 

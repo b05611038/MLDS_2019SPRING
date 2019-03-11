@@ -40,6 +40,7 @@ def TrainModel(model, saving_name, dataset, criterion, device, save = True):
 
     print('Model Structure:')
     print(model)
+    print('Model Parameter numbers: ',sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     history = []
     train_loss = 0 
