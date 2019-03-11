@@ -103,7 +103,7 @@ def target_function(x):
     return y
 
 if __name__ == '__main__':
-    if len(sys.argv) < 6:
+    if len(sys.argv) < 4:
         print('Usage: python3 train_FT.py [model name] [sample point] [save interval] [device]')
         exit(0)
 

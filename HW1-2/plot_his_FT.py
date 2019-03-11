@@ -61,7 +61,7 @@ if __name__ == '__main__':
         args.append(sys.argv[i])
 
     his, his_label = grab_FThis(dataframe_list, args, 'grad')
-    TrainHistoryPlot(his, his_label, sys.argv[1] + '_grad_norm', 'FT_train_loss', ['iter', 'grad norm'])
+    TrainHistoryPlot(his, his_label, sys.argv[1] + '_grad_norm', 'FT_grad_norm', ['iter', 'grad norm'])
     his, his_label = grab_FThis(dataframe_list, args, 'train')
     TrainHistoryPlot(his, his_label, sys.argv[1] + '_train_loss', 'FT_train_loss', ['iter', 'loss'])
     his, his_label = grab_FThis(dataframe_list, args, 'test')
