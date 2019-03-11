@@ -16,7 +16,7 @@ class ANN(nn.Module):
             self.denses.add_module('Dense_' + str(i + 2), nn.Linear(unit, unit))
             self.denses.add_module('ReLU_' + str(i + 2), nn.ReLU())
 
-        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1, bias))
+        self.denses.add_module('Dense_' + str(depth), nn.Linear(unit, 1))
 
     def forward(self, data):
         x = self.denses(data)
