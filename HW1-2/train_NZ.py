@@ -21,11 +21,13 @@ def Grad_norm(model):
     for p in model.parameters():
         grad = 0
         if p.grad is not None:
-            grad = (p.grad.cpu().detach() ** 2).sum()
+            grad = (p.grad.data ** 2).sum()
 
         grad_all += grad
+        grad_all = grad_all ** 0.5
+        grad_all.required_grad = True
 
-    return grad_all ** 0.5
+    return grad_all
 
 def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, save = True):
     if device < 0:
@@ -39,7 +41,7 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
 
     model.float().to(env)
     criterion.to(env)
-    optim = Adam(model.parameters(), lr = 0.005)
+    optim = Adam(model.parameters())
     optim_grad = Adam(model.parameters(), lr = 0.0001)
 
     train_set = dataset
@@ -88,7 +90,12 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
                 out = model(train_x)
  
                 loss = criterion(out, train_y)
-                grad_norm = Grad_norm(model)
+                grad_all = torch.autograd.grad(loss, model.parameters(), create_graph=True)
+                grad_norm = torch.zeros((1, 1)).to(env)
+                for i, g in enumerate(grad_all):
+                    grad_norm += (g ** 2).sum()
+
+                grad_norm = grad_norm ** 0.5
                 grad_norm.backward()
 
                 optim_grad.step()
