@@ -11,7 +11,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from lib.model import ANN
-from lib.utils import SampleFunctionDataset
+from lib.utils import *
 #--------------------------------------------------------------------------------
 #train_FT.py is to train the feed forward nerual network for function fitting in
 #2019 MLDS HW1-2
@@ -74,7 +74,7 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
                 optim.step()
 
             train_loss = float(loss.cpu().detach().numpy())
-            grad_norm = float(Grad_norm(model).xpu().detach().numpy())
+            grad_norm = float(Grad_norm(model).cpu().detach().numpy())
             print('Model version:', point + 1, '| Epoch:', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss)
 
         print('Changing loss function, continue training...')
@@ -101,7 +101,7 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
                 optim_grad.step()
 
             train_loss = float(loss.cpu().detach().numpy())
-            grad_norm = float(grad_norm.xpu().detach().numpy())
+            grad_norm = float(grad_norm.cpu().detach().numpy())
             print('Model version:', point + 1, '| Grad epoch:', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss)
 
             if grad_norm < 0.02:

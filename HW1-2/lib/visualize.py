@@ -48,3 +48,20 @@ def ModelWeightPlot(reduced_weight, model_name, save_name, title, save = True):
         print('Picture: ' + save_name + '.png done.')
     else:
         plt.show()
+
+def MinimumRatioPlot(minimum_ratio, loss, save_name, save = True):
+    #the plot will plot the scatter plot of minimum ratio vs loss
+    if minimum_ratio.shape[0] != loss.shape[0]:
+        raise RuntimeError('Please check the loss and minimum ratio array.')
+
+    plt.figure(figsize = (10, 8))
+    for i in range(minimum_ratio.shape[0]):
+        plt.scatter(minimum_ratio[i], loss[i])
+
+    plt.xlabel('minimum_ratio')
+    plt.ylabel('loss')
+    if save:
+        plt.savefig(save_name + '.png')
+        print('Picture: ' + save_name + '.png done.')
+    else:
+        plt.show()
