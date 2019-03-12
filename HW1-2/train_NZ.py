@@ -57,6 +57,7 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
     print('Model Parameter numbers: ',sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     point = 0
+    loss_list = []
     while point < points:
         for epoch in range(epochs[0]):
             for iter, data in enumerate(train_loader):
@@ -78,7 +79,6 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
             print('Model version:', point + 1, '| Epoch:', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss)
 
         print('Changing loss function, continue training...')
-        loss_list = []
         for epoch in range(epochs[1]):
             for iter, data in enumerate(train_loader):
                 train_x, train_y = data

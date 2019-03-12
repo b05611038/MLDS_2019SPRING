@@ -76,10 +76,10 @@ if __name__ == '__main__':
         exit(0)
 
     start_time = time.time()
-    model_name = gernerate_name(sys.argv[2])
-    minimum_ratio = calculate_minimum_ratio(model_name, np.load('loss.npy'), load_object(sys.argv[2] + '_dataset.pkl'), nn.MSELoss(), int(sys.argv[3]), int(sys.argv[4]))
-    np.save('minimum_ratio.npy', minimum_ratio)
-    MinimumRatioPlot(minimum_ratio, np.load('loss.npy'), sys.argv[1])
+    #model_name = gernerate_name(sys.argv[2])
+    #minimum_ratio = calculate_minimum_ratio(model_name, np.load('loss.npy'), load_object(sys.argv[2] + '_dataset.pkl'), nn.MSELoss(), int(sys.argv[3]), int(sys.argv[4]))
+    #np.save('minimum_ratio.npy', minimum_ratio)
+    MinimumRatioPlot(np.load('minimum_ratio.npy'), np.load('loss.npy'), sys.argv[1])
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 

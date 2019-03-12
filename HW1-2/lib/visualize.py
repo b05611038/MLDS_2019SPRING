@@ -54,6 +54,7 @@ def MinimumRatioPlot(minimum_ratio, loss, save_name, save = True):
     if minimum_ratio.shape[0] != loss.shape[0]:
         raise RuntimeError('Please check the loss and minimum ratio array.')
 
+    print(loss)
     plt.figure(figsize = (10, 8))
     for i in range(minimum_ratio.shape[0]):
         plt.scatter(minimum_ratio[i], loss[i])

@@ -41,6 +41,7 @@ def reduced_weight(model_name, mode):
         for j in range(len(sub_name)):
             model = torch.load(sub_name[j], map_location = 'cpu')
             model.eval()
+
             if weight is None:
                 weight = grab_weight(model, mode)
             else:
@@ -62,7 +63,7 @@ if __name__ == '__main__':
 
     model_name = gernerate_name(sys.argv[2])
     weight = reduced_weight(model_name, sys.argv[3])
-    ModelWeightPlot(weight, model_name, sys.argv[1], 'optimization process by PCA')
+    ModelWeightPlot(weight, model_name, sys.argv[1], 'optimization process ' + sys.argv[3] + ' by PCA')
     print('All process done.')
 
 

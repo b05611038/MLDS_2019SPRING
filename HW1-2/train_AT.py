@@ -120,7 +120,7 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
         test_loss = float((torch.sum(torch.mul(test_loss, test_total.float())) / torch.sum(test_total)).detach().numpy())
         test_acc = float((100 * test_correct / torch.sum(test_total)).detach())
 
-        history.append(str(epoch + 1) + ',' + str(grad_norm) + str(train_loss)
+        history.append(str(epoch + 1) + ',' + str(grad_norm) + ',' + str(train_loss)
                 + ',' + str(train_acc) + ',' + str(test_loss) + ',' + str(test_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss,
                 '| Train Acc.: %2f' % train_acc, '| Test loss: %6f' % test_loss, '| Test Acc.: %2f' % test_acc, '\n')
