@@ -73,8 +73,8 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
 
                 optim.step()
 
-            train_loss = float(loss.detach().numpy())
-            grad_norm = float(Grad_norm(model).detach().numpy())
+            train_loss = float(loss.cpu().detach().numpy())
+            grad_norm = float(Grad_norm(model).xpu().detach().numpy())
             print('Model version:', point + 1, '| Epoch:', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss)
 
         print('Changing loss function, continue training...')
@@ -100,20 +100,21 @@ def TrainModel(model, saving_name, dataset, criterion, epochs, points, device, s
 
                 optim_grad.step()
 
-            train_loss = float(loss.detach().numpy())
-            grad_norm = float(grad_norm.detach().numpy())
+            train_loss = float(loss.cpu().detach().numpy())
+            grad_norm = float(grad_norm.xpu().detach().numpy())
             print('Model version:', point + 1, '| Grad epoch:', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss)
 
-            if grad_norm < 5e-3:
+            if grad_norm < 0.02:
                 loss_list.append(train_loss)
                 torch.save(model.state_dict(), saving_name + '_paras_ver' + str(point + 1) + '.pkl')
                 point += 1
                 break
 
-        print('Model version ' + str(point + 1) + ' saving done.')
+        print('Model version ' + str(point) + ' saving done.')
 
     loss_list = np.asarray(loss_list)
     np.save('loss.npy', loss_list)
+    save_object(saving_name + '_dataset.pkl', train_set)
     print('All training process done.')
 
 def target_function(x):

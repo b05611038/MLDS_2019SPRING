@@ -25,7 +25,7 @@ def collect_name(model_name, epoch = 100, interval = 10):
 
     return sub_name
 
-def gernerate_name(name, amount = 7):
+def gernerate_name(name, amount = 8):
     model_name = []
     for i in range(amount):
         model_name.append(name + '_' + str(i + 1))

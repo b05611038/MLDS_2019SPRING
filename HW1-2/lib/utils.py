@@ -1,9 +1,21 @@
 import math
+import pickle
 import random
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
+
+def save_object(fname, obj):
+    #the function is used to save some data in class or object in .pkl file
+    with open(fname, 'wb') as out_file:
+        pickle.dump(obj, out_file)
+    out_file.close()
+
+def load_object(fname):
+    #the function is used to read the data in .pkl file
+    with open(fname, 'rb') as in_file:
+        return pickle.load(in_file)
 
 class SampleFunctionDataset(Dataset):
     def __init__(self, val_split, func, domain, data_num, mode = None):
