@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class ANN(nn.Module):
-    def __init__(self, depth = 2, unit = 50):
+    def __init__(self, depth = 4, unit = 70):
         super(ANN, self).__init__()
 
         self.depth = depth

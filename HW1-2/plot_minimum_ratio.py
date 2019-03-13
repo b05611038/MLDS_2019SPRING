@@ -11,7 +11,7 @@ from lib.model import ANN
 from lib.utils import *
 from lib.visualize import MinimumRatioPlot
 
-def gernerate_name(name, points = 100):
+def gernerate_name(name, points):
     model_name = []
     for i in range(1, points + 1):
         model_name.append(name + '_paras_ver' + str(i) + '.pkl')
@@ -39,8 +39,7 @@ def calculate_minimum_ratio(model_name, loss_list, dataset, criterion, sample_nu
         minimum_num = 0
         for sample in range(sample_num):
             for index, layer in enumerate(model.parameters()):
-                noise = (random.random() - 0.5) * 2
-                layer.data.add_(noise)
+                layer.data *= 1 + ((random.random() - 0.5) * 2) * 0.005
 
             loss = 0
             for iter, data in enumerate(data_loader):
@@ -56,7 +55,7 @@ def calculate_minimum_ratio(model_name, loss_list, dataset, criterion, sample_nu
 
             if loss > loss_list[ver]:
                 minimum_num += 1
-            if sample % 100 == 0 and sample != 0:
+            if sample % 10 == 0 and sample != 0:
                 print('Model version: ', ver + 1, '| Minimum ratio: %4f' % (minimum_num / sample), '| Progress:', sample, '/', sample_num)
 
         minimum_ratio.append(float(minimum_num / sample_num))
@@ -71,15 +70,17 @@ def target_function(x):
     return y
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print('Usage: python3 plot_minimum_ratio.py [image name] [model name] [sample point] [device]')
+    if len(sys.argv) < 5:
+        print('Usage: python3 plot_minimum_ratio.py [image name] [model name] [model num] [sample point] [device]')
         exit(0)
 
     start_time = time.time()
-    #model_name = gernerate_name(sys.argv[2])
-    #minimum_ratio = calculate_minimum_ratio(model_name, np.load('loss.npy'), load_object(sys.argv[2] + '_dataset.pkl'), nn.MSELoss(), int(sys.argv[3]), int(sys.argv[4]))
-    #np.save('minimum_ratio.npy', minimum_ratio)
-    MinimumRatioPlot(np.load('minimum_ratio.npy'), np.load('loss.npy'), sys.argv[1])
+    model_name = gernerate_name(sys.argv[2], int(sys.argv[3]))
+    minimum_ratio = calculate_minimum_ratio(model_name, np.load('loss.npy'), 
+            load_object(sys.argv[2] + '_dataset.pkl'), nn.MSELoss(),
+            int(sys.argv[4]), int(sys.argv[5]))
+    np.save('minimum_ratio.npy', minimum_ratio)
+    #MinimumRatioPlot(np.load('minimum_ratio.npy'), np.load('loss.npy'), sys.argv[1])
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 
