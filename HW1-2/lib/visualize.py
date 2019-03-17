@@ -54,15 +54,18 @@ def MinimumRatioPlot(minimum_ratio, loss, save_name, save = True):
     if minimum_ratio.shape[0] != loss.shape[0]:
         raise RuntimeError('Please check the loss and minimum ratio array.')
 
-    print(loss)
     plt.figure(figsize = (10, 8))
-    for i in range(minimum_ratio.shape[0]):
-        plt.scatter(minimum_ratio[i], loss[i])
+    plt.scatter(minimum_ratio, loss)
+    #for i in range(minimum_ratio.shape[0]):
+    #    plt.scatter(minimum_ratio[i], loss[i])
 
     plt.xlabel('minimum_ratio')
     plt.ylabel('loss')
+    plt.ylim(28.38825, 28.38925)
     if save:
         plt.savefig(save_name + '.png')
         print('Picture: ' + save_name + '.png done.')
     else:
         plt.show()
+
+

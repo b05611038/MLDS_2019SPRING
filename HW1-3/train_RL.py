@@ -11,23 +11,13 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from lib.model import CNN
+from lib.utils import *
+from lib.model import ResNet
 #--------------------------------------------------------------------------------
-#train_AT.py is the training process of cifar10 dataset for MLSD homework 1-2:
-#visualize grad norm
+#train_RF.py is the training process of cifar-10 dataset for MLDS homework 1-3:
+#fit random sample
 #--------------------------------------------------------------------------------
-def Acquire_grad_norm(model):
-    grad_all = 0
-    for p in model.parameters():
-        grad = 0
-        if p.grad is not None:
-            grad = (p.grad.cpu().data.numpy() ** 2).sum()
-
-        grad_all += grad
-
-    return float(grad_all ** 0.5)
-
-def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, device, save = True):
+def TrainModel(model, saving_name, random_ratio, epochs, batch_size, device, save = True):
     if device < 0:
         env = torch.device('cpu')
         print('Envirnment setting done, using device: cpu')
@@ -38,6 +28,7 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
         print('Envirnment setting done, using device: CUDA_' + str(device))
 
     model.float().to(env)
+    criterion = nn.CrossEntropyLoss()
     criterion.to(env)
     optim = Adam(model.parameters())
 
@@ -47,20 +38,26 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
     train_eval_set = torchvision.datasets.CIFAR10(root = './data', train = True, download = True, transform = transform)
     test_set = torchvision.datasets.CIFAR10(root = './data', train = False, download = True, transform = transform)
 
+    RL = RandomLabel(random_ratio)
+
     train_loader = DataLoader(train_set, batch_size = batch_size, shuffle = False)
     train_eval_loader = DataLoader(train_eval_set, batch_size = batch_size, shuffle = False)
     test_loader = DataLoader(test_set, batch_size = batch_size, shuffle = False)
 
     print('Model Structure:')
     print(model)
-    print('Model Parameter numbers: ',sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    history = ['Epoch,Grad_norm,Train Loss,Train Acc.,Test Loss,Test Acc.\n']
+    history = ['Epoch,Train Loss,Train Acc.,Test Loss,Test Acc.\n']
     for epoch in range(epochs):
-        print('Start training epoch: ', epoch + 1)
+        print('Start training epoch:', epoch + 1)
         for iter, data in enumerate(train_loader):
             train_x, train_y = data
             train_x = train_x.float().to(env)
+            if epoch == 0:
+                train_y = RL.generate(train_y)
+            else:
+                train_y = RL.grab(iter)
+
             train_y = train_y.long().to(env)
 
             optim.zero_grad()
@@ -74,8 +71,6 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
 
             if iter != 0 and iter % 10 == 0:
                 print('Iter: ', iter, ' | Loss: %6f' % loss.detach())
-
-        grad_norm = Acquire_grad_norm(model)
 
         train_loss = []
         train_total = []
@@ -120,13 +115,10 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
         test_loss = float((torch.sum(torch.mul(test_loss, test_total.float())) / torch.sum(test_total)).detach().numpy())
         test_acc = float((100 * test_correct / torch.sum(test_total)).detach())
 
-        history.append(str(epoch + 1) + ',' + str(grad_norm) + ',' + str(train_loss)
-                + ',' + str(train_acc) + ',' + str(test_loss) + ',' + str(test_acc) + '\n')
-        print('\nEpoch: ', epoch + 1, '| Grad_norm: %6f' % grad_norm, '| Train loss: %6f' % train_loss,
-                '| Train Acc.: %2f' % train_acc, '| Test loss: %6f' % test_loss, '| Test Acc.: %2f' % test_acc, '\n')
-
-        if (epoch + 1) % interval == 0 and save:
-            torch.save(model, saving_name + '_E' + str(epoch + 1) + '.pkl')
+        history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) +
+                ',' + str(test_loss) + ',' + str(test_acc) + '\n')
+        print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc.: %2f' % train_acc,
+                '| Test loss: %6f' % test_loss, '| Test Acc.: %2f' % test_acc, '\n')
 
     f = open(saving_name + '.csv', 'w')
     f.writelines(history)
@@ -135,16 +127,16 @@ def TrainModel(model, saving_name, criterion, epochs, interval, batch_size, devi
     if save:
         torch.save(model, saving_name + '.pkl')
 
-    print('All process done.')
+    print('All training process done.')
 
 if __name__ == '__main__':
-    if len(sys.argv) < 6:
-        print('Usage: python3 train_AT.py [model name] [epochs] [save interval] [batch size] [device]')
+    if len(sys.argv) < 5:
+        print('Usage: python3 train_RL.py [model name] [random ratio] [epochs] [batch size] [device]')
         exit(0)
 
     start_time = time.time()
-    model = CNN()
-    TrainModel(model, sys.argv[1], nn.CrossEntropyLoss(), int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
+    model = ResNet()
+    TrainModel(model, sys.argv[1], float(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 
