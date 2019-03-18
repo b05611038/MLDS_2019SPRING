@@ -79,6 +79,7 @@ def TrainModel(model, saving_name, random_ratio, epochs, batch_size, device, sav
             for _iter, train_data in enumerate(train_eval_loader):
                 train_x, train_y = train_data
                 train_x = train_x.float().to(env)
+                train_y = RL.grab(iter)
                 train_y = train_y.long().to(env)
 
                 train_out = model(train_x)
