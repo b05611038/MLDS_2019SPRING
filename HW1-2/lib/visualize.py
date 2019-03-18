@@ -56,9 +56,6 @@ def MinimumRatioPlot(minimum_ratio, loss, save_name, save = True):
 
     plt.figure(figsize = (10, 8))
     plt.scatter(minimum_ratio, loss)
-    #for i in range(minimum_ratio.shape[0]):
-    #    plt.scatter(minimum_ratio[i], loss[i])
-
     plt.xlabel('minimum_ratio')
     plt.ylabel('loss')
     plt.ylim(28.38825, 28.38925)

@@ -80,7 +80,7 @@ if __name__ == '__main__':
             load_object(sys.argv[2] + '_dataset.pkl'), nn.MSELoss(),
             int(sys.argv[4]), int(sys.argv[5]))
     np.save('minimum_ratio.npy', minimum_ratio)
-    #MinimumRatioPlot(np.load('minimum_ratio.npy'), np.load('loss.npy'), sys.argv[1])
+    MinimumRatioPlot(np.load('minimum_ratio.npy'), np.load('loss.npy'), sys.argv[1])
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 

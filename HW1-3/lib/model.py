@@ -2,6 +2,34 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class CNN(nn.Module):
+    def __init__(self, channel, depth = 10):
+        super(CNN, self).__init__()
+
+        self.channel = channel
+        self.depth = depth
+
+        self.conv = nn.Sequential()
+        self.conv.add_module('conv_1', nn.Conv2d(3, channel, 3, padding = 1, bias = False))
+        self.conv.add_module('bn_1', nn.BatchNorm2d(channel))
+        self.conv.add_module('relu_1', nn.ReLU(inplace = True))
+        for i in range(1, depth - 1):
+            self.conv.add_module('conv_' + str(i + 1), nn.Conv2d(channel, channel, 3, padding = 1, bias = False))
+            self.conv.add_module('bn_' + str(i + 1), nn.BatchNorm2d(channel))
+            self.conv.add_module('relu_' + str(i + 1), nn.ReLU(inplace = True))
+
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.dense = nn.Linear(channel, 10)
+
+    def forward(self, data):
+        x = self.conv(data)
+        x = self.avg_pool(x)
+
+        x = x.view(x.size(0), -1)
+        x = self.dense(x)
+
+        return x
+
 class BasicBlock(nn.Module):
     def __init__(self, in_channel, out_channel, stride = 1, short = None):
         super(BasicBlock, self).__init__()
