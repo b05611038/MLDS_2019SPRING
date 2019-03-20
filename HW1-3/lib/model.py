@@ -2,6 +2,54 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class SenCNN(nn.Module):
+    def __init__(self):
+        super(SenCNN, self).__init__()
+
+        self.conv1 = nn.Conv2d(3, 16, 3, padding = 1, bias = False)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 16, 3, padding = 1, bias = False)
+        self.bn2 = nn.BatchNorm2d(16)
+        self.max1 = nn.MaxPool2d(2)
+        self.conv3 = nn.Conv2d(16, 32, 3, padding = 1, bias = False)
+        self.bn3 = nn.BatchNorm2d(32)
+        self.conv4 = nn.Conv2d(32, 32, 3, padding = 1, bias = False)
+        self.bn4 = nn.BatchNorm2d(32)
+        self.max2 = nn.MaxPool2d(2)
+        self.dense1 = nn.Linear(2048, 512)
+        self.drop = nn.Dropout2d()
+        self.dense2 = nn.Linear(512, 10)
+
+        self.relu = nn.ReLU(inplace = True)
+
+    def forward(self, data):
+        x = self.conv1(data)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.max1(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = self.relu(x)
+        x = self.max2(x)
+
+        x = x.view(x.size(0), -1)
+        x = self.dense1(x)
+        x = self.drop(x)
+        x = self.relu(x)
+
+        x = self.dense2(x)
+
+        return x
+
 class CNN(nn.Module):
     def __init__(self, channel, depth = 10):
         super(CNN, self).__init__()
