@@ -112,14 +112,14 @@ def TrainModel(model, saving_name, epochs, lr, batch_size, device, save = True):
 
         train_loss = float((torch.sum(torch.mul(train_loss, train_total.float())) / torch.sum(train_total)).detach())
         train_acc = float((100 * train_correct / torch.sum(train_total)).detach())
-        sen = float(torch.mean(sen))
+        sen = torch.mean(sen).numpy()
         test_loss = float((torch.sum(torch.mul(test_loss, test_total.float())) / torch.sum(test_total)).detach().numpy())
         test_acc = float((100 * test_correct / torch.sum(test_total)).detach())
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) +
                 ',' + str(sen) + ',' + str(test_loss) + ',' + str(test_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc.: %2f' % train_acc,
-                '| Sensitivity: %6f' % sen, '| Test loss: %6f' % test_loss, '| Test Acc.: %2f' % test_acc, '\n')
+                '| Sensitivity:', sen, '| Test loss: %6f' % test_loss, '| Test Acc.: %2f' % test_acc, '\n')
 
     f = open(saving_name + '.csv', 'w')
     f.writelines(history)
@@ -132,7 +132,7 @@ def TrainModel(model, saving_name, epochs, lr, batch_size, device, save = True):
 
 if __name__ == '__main__':
     if len(sys.argv) < 5:
-        print('Usage: python3 train_Gpara.py [model name] [epochs] [learning rate] [batch size] [device]')
+        print('Usage: python3 train_Gsen.py [model name] [epochs] [learning rate] [batch size] [device]')
         exit(0)
 
     start_time = time.time()

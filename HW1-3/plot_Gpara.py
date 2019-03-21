@@ -58,16 +58,15 @@ if __name__ == '__main__':
     start_time = time.time()
     argv = []
     for i in range(2, len(sys.argv)):
-        argv[i].append(sys.argv[i])
+        argv.append(sys.argv[i])
 
+    argv.sort(key = lambda argv: int(argv.split('.csv')[0].split('c')[1]))
     dataframe_list = GrabDataframe(argv)
     paras, outcome_loss = OutcomeConcatenate(dataframe_list, 'loss')
     paras, outcome_acc = OutcomeConcatenate(dataframe_list, 'acc')
 
-    GenParaPlot(paras, outcome_loss[0], sys.argv[1] + '_train_loss', 'paras vs loss', ['paras', 'loss'])
-    GenParaPlot(paras, outcome_loss[1], sys.argv[1] + '_test_loss', 'paras vs loss', ['paras', 'loss'])
-    GenParaPlot(paras, outcome_acc[0], sys.argv[1] + '_train_acc', 'paras vs accuracy', ['paras', 'Acc.'])
-    GenParaPlot(paras, outcome_acc[1], sys.argv[1] + '_test_acc', 'paras vs accuracy', ['paras', 'Acc.'])
+    GenParaPlot(paras, outcome_loss, ['train', 'test'],sys.argv[1] + '_loss', 'paras vs loss', 'loss')
+    GenParaPlot(paras, outcome_acc, ['train', 'test'],sys.argv[1] + '_acc', 'paras vs accuracy', 'Acc.')
 
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
