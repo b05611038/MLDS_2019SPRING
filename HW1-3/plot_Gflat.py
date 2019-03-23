@@ -12,24 +12,26 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from lib.utils import *
+from lib.model import SenCNN
 from lib.visualize import GenSenPlot
 
 def LoadModel(model_name):
     return torch.load(model_name, map_location = 'cpu')
 
 def ModelExchange(model_one, model_two, alpha):
-    model = copy.deepcopy(model_one)
-    for index, layer in enumerate(model.parameters()):
-        for index_one, layer_one in enumerate(model_one.parameters()):
-            for index_two, layer_two in enumerate(model_two.parameters()):
-                if index_one == index_two:
-                    layer.data = layer_one.data * alpha + layer_two.data * (1 - alpha)
-                else:
-                    pass
+    para_one = model_one.named_parameters()
+    para_two = model_two.named_parameters()
 
-    return model    
+    dict_para = dict(para_two)
 
-def Eval(model_one, model_two):
+    for name_one, parameters in para_one:
+        if name_one in dict_para:
+            dict_para[name_one].data.copy_(alpha * parameters.data + (1 - alpha) * dict_para[name_one].data)
+
+    model = SenCNN()
+    return model.load_state_dict(dict_para)    
+
+def Eval(model_one, model_two, point_num):
     model_one = LoadModel(model_one)
     model_two = LoadModel(model_two)
 
@@ -41,7 +43,7 @@ def Eval(model_one, model_two):
     train_loader = DataLoader(train_set, batch_size = 1024, shuffle = False)
     test_loader = DataLoader(test_set, batch_size = 1024, shuffle = False)
 
-    alpha = np.linspace(-1.5, 2.5, 50)
+    alpha = np.linspace(-1.5, 2.5, point_num)
     train_acc = []
     train_loss = []
     test_acc = []
@@ -66,11 +68,49 @@ def Eval(model_one, model_two):
                 temp_loss.append(criterion(train_out, train_y).detach())
 
             temp_loss = torch.tensor(temp_loss)
-            train_loss = torch.sum(temp_loss).
-                
-                
+            temp_loss = torch.mul(temp_loss, temp_total).sum().numpy()
+            train_loss.append((temp_loss / temp_total.sum()).numpy())
+            train_acc.append(temp_correct / temp_total.sum().numpy())
+
+            print('Alpha:', i, '| Train Loss: %.6f' % (temp_loss / temp_total.sum()).numpy(),
+                    '| Test Acc.: %.6f' % temp_correct / temp_total.sum().numpy())
+
+            temp_correct = 0
+            temp_total = []
+            temp_loss = []
+            for iter, data in enumerate(test_loader):
+                test_x, test_y = data
+                test_x = test_x.float()
+                test_y = test_y.long()
+
+                test_out = model(test_x)
+                _, prediction = torch.max(test_out.data, 1)
+                temp_total.append(test_y.size(0))
+                temp_correct += (prediction == test_y).sum().item()
+
+                temp_loss.append(criterion(test_out, y).detach())
+
+            temp_loss = torch.tensor(temp_loss)
+            temp_loss = torch.mul(temp_loss, temp_total).sum().numpy()
+            test_loss.append((temp_loss / temp_total.sum()).numpy())
+            test_acc.append(temp_correct / temp_total.sum().numpy())
+
+            print('Alpha:', i, '| Test Loss: %.6f' % (temp_loss / temp_total.sum()).numpy(),
+                    '| Test Acc.: %.6f' % temp_correct / temp_total.sum().numpy())
+
+    return alpha, np.array(train_loss), np.array(train_acc), np.array(test_loss), np.array(test_acc)
 
 if __name__ == '__main__':
-    model_one = LoadModel(sys.argv[1])
-    model_two = LoadModel(sys.argv[2])
-    model = ModelExchange(model_one, model_two, 0.5)
+    if len(sys.argv) < 5:
+        print('Usage: python3 plot_Gflat.py [image name] [point num] [model 1 path] [model 2 path]')
+        exit(0)
+
+    start_time = time.time()
+    alpha, train_loss, train_acc, test_loss, test_acc = Eval(sys.argv[3], sys.argv[4], int(sys.argv[2]))
+
+    GenSenPlot([alpha, [train_loss, test_loss], [train_acc, test_acc]], [['train', 'test'], ['train', 'test']],
+            sys.argv[1], 'Flatness vs Generalization', ['alpha', 'cross_entropy', 'Accuracy'])    
+
+    print('All process done, cause %s seconds.' % (time.time() - start_time))
+
+
