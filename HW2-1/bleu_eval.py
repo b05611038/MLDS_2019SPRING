@@ -3,6 +3,7 @@ import operator
 import sys
 import json
 from functools import reduce 
+
 def count_ngram(candidate, references, n):
     clipped_count = 0
     count = 0
@@ -101,6 +102,7 @@ def BLEU(s,t,flag = False):
     precisions.append(pr)
     score = geometric_mean(precisions) * bp
     return score
+
 ### Usage: python bleu_eval.py caption.txt
 ### Ref : https://github.com/vikasnar/Bleu
 if __name__ == "__main__" :
