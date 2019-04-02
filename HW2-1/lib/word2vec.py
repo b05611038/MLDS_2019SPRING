@@ -22,10 +22,13 @@ class Word2vec():
         for video in range(len(data)):
             data_dict[data[video]['id']] = []
             for cap in range(len(data[video]['caption'])):
-                strings = data[video]['caption'][cap].replace('.', '').split(' ')
-                seq = np.empty(len(strings), )
-                for word in range(len(strings)):
-                    seq[word] = self.w2v(strings[word])
+                strings = data[video]['caption'][cap].replace('.', '').lower().split(' ')
+                seq = np.empty(len(strings) + 2, )
+                seq[0] = self.w2v('<bos>')
+                for word in range(1, len(strings) + 1):
+                    seq[word] = self.w2v(strings[word - 1])
+
+                seq[len(strings) + 1] = self.w2v('<eos>')
 
                 data_dict[data[video]['id']].append(seq)
 
@@ -36,6 +39,8 @@ class Word2vec():
             return data_dict
 
     def w2v(self, word):
+        word = word.lower()
+
         try:
             vec = self.__embedding_dict[word]
         except KeyError:
@@ -74,9 +79,13 @@ class Word2vec():
                     transberse_embedding[index] = word
                     index += 1
 
-            transberse_embedding[index] = 'unknown'
+            transberse_embedding[index] = '<bos>'
+            embedding_dict['<bos>'] = index
+            transberse_embedding[index + 1] = '<eos>'
+            embedding_dict['<eos>'] = index + 1
+            transberse_embedding[index + 2] = 'unknown'
 
-            return embedding_dict, transberse_embedding, index + 1
+            return embedding_dict, transberse_embedding, index + 3
         else:
             raise RuntimeError('No choosing embedding, please check the embedding setting.')
 
@@ -85,11 +94,11 @@ class Word2vec():
         word_dict = {}
         for video in range(len(data)):
             for cap in range(len(data[video]['caption'])):
-                sentences.append(data[video]['caption'][cap])
-                strings = data[video]['caption'][cap].replace('.', '').split(' ')
+                sentences.append(data[video]['caption'][cap].lower())
+                strings = data[video]['caption'][cap].replace('.', '').lower().split(' ')
                 for word in range(len(strings)):
                     if strings[word] not in word_dict.keys():
-                        word_dict[strings[word]] = [len(word_dict), 0] #index, freqency
+                        word_dict[strings[word]] = [len(word_dict), 1] #index, freqency
                     else:
                         word_dict[strings[word]][1] += 1
 
