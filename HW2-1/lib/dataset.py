@@ -16,16 +16,24 @@ class VCDataSet(Dataset):
         self.feature = self._get_feature(data_path)
         self.label = load_object(label_path)
         self.index_list = list(self.label.keys())
+        self.data, self.out_seq, self.mask, self.label = self._build_matrix(self.index_list)
 
     def __getitem__(self, index):
-        out_pair = self.index_list[index]
+        data = self.data[:, index, :]
+        out_seq = self.out_seq[:, index, :]
+        mask = self.mask[index]
+        label = self.label[index]
+
+        return data, out_seq, mask, label 
+
+    def _build_matrix(self, index_list):
         data = None
         label = []
         mask = []
         guide_seq = []
         max_seq = 0
-        for i in range(len(out_pair)):
-            seq = self._index_choose(self.mode, self.label[self.index_list[i]])
+        for i in range(len(index_list)):
+            seq = self._index_choose(self.mode, self.label[index_list[i]])
             if max_seq < seq.shape[0]:
                 max_seq = seq.shape[0]
 
@@ -34,7 +42,7 @@ class VCDataSet(Dataset):
                 label.append(seq[time_state])
                 mask.append(time_state - 1)
 
-            data_temp = self.feature[self.index_list[i]].reshape(80, 1, 4096)
+            data_temp = self.feature[index_list[i]].reshape(80, 1, 4096)
             for j in range(seq.shape[0] - 1):
                 if data is None:
                     data = data_temp
