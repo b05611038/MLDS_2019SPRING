@@ -55,8 +55,7 @@ class S2VTdecoder(nn.Module):
   
         if self.mode == 'guide':
             words_embedding = torch.cat((hiddens, input_tokens), dim = 2)
-        elif self.mode == 'self':
-            
+        elif self.mode == 'self':            
             words_embedding = torch.cat((hiddens, torch.cat((hiddens[1:, :, :], d_h), dim = 0)), dim = 2)
 
         outs = self._time_flatten(words_embedding) #seq_length * mini_batch * word_vector
