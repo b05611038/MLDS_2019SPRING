@@ -70,7 +70,9 @@ class Word2vec():
         embedding_dict = {}
         transberse_embedding = {}
         if embedding == 'one_hot':
-            index = 0
+            transberse_embedding[0] = '<padding>'
+            embedding_dict['<padding>'] = 0
+            index = 1
             for word in self.word_dict.keys():
                 if self.word_dict[word][1] < self.least_freq:
                     continue

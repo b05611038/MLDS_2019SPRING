@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class S2VT(nn.Module):
     def __init__(self, out_size, env, video_seq_lenth = 80, input_size = 4096, hidden_size = 256,
-            mode = 'guide', probability= 0):
+            mode = 'guide', probability = 0):
         super(S2VT, self).__init__()
 
         self.out_size = out_size
@@ -18,23 +18,21 @@ class S2VT(nn.Module):
         self.encoder = S2VTencoder(video_seq_lenth, input_size, hidden_size)
         self.decoder = S2VTdecoder(out_size, hidden_size, mode, probability)
 
-    def forward(self, video_seq, guided_token, mask_index = None):
+    def forward(self, video_seq, guided_token, mask = None):
         #mask is the batch mask to select the output of different time step in seq gen.
         e_h = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
         e_c = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
 
         video_embedding, (e_h, e_c) = self.encoder(video_seq, e_h, e_c)
         d_c = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
-        out = self.decoder(guided_token, video_embedding, d_c)
+        out = self.decoder(guided_token, e_h, d_c)
 
-        if mask_index is None:
+        if mask is None:
             return out
         else:
-            mask_out = torch.empty(video_seq.size(1), self.out_size).to(self.env)
-            for i in range(len(mask_index)):
-                mask_out[i] = out[mask_index[i], i, :]
-
-            return mask_out
+            out = torch.masked_select(out, mask)
+            out = out.view(-1, self.out_size)
+            return out
 
 class S2VTdecoder(nn.Module):
     def __init__(self, out_size, hidden_size, mode, probability):
@@ -50,6 +48,7 @@ class S2VTdecoder(nn.Module):
         self.linear = nn.Linear(2 * hidden_size, out_size)
 
     def forward(self, input_tokens, video_state, c):
+        input_tokens = torch.squeeze(input_tokens)
         input_tokens = self.embedding(input_tokens)
         hiddens, (d_h, d_c) = self.lstm(input_tokens, (video_state, c))
   
@@ -86,7 +85,6 @@ class S2VTencoder(nn.Module):
 
     def forward(self, video_seq, e_h, e_c):
         video_embedding, (e_h, e_c) = self.lstm(video_seq, (e_h, e_c))
-        video_embedding = video_embedding[self.video_seq_lenth - 1: , :, :] #seq_length, batch, out -> batch, last out
 
         return video_embedding, (e_h, e_c)
 
