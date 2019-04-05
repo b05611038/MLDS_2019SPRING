@@ -57,7 +57,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
 
             optim.step()
 
-            if iter != 0 and iter % 10 == 0:
+            if iter != 0 and iter % 2 == 0:
                 print('Iter: ', iter, ' | Loss: %6f' % loss.detach())
 
         test_loss = []
