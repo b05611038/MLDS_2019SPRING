@@ -40,7 +40,7 @@ class VCDataSet(Dataset):
         data = np.empty((80, len(index_list), 4096))
         for i in range(len(index_list)):
             seq = self._index_choose(self.mode, self.label[index_list[i]])
-            mask_index.append(seq.shape[0])
+            mask_index.append(seq.shape[0] - 1)
             if max_seq < seq.shape[0]:
                 max_seq = seq.shape[0]
 
