@@ -64,18 +64,17 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         model = model.eval()
         with torch.no_grad():
             for _iter, test_data in enumerate(test_loader):
-                test_video, test_seq, test_label = data
+                test_video, test_seq, test_mask, test_label, test_label_mask = data
                 test_video = Pack_seq(test_video).to(env)
                 test_seq = Pack_seq(test_seq).long().to(env)
                 test_mask = Pack_seq(test_mask).byte().to(env)
-                test_label = test_label.to(env)
-                test_label_mask = test_label_mask.to(env)
+                test_label = test_label.long().to(env)
+                test_label_mask = test_label_mask.byte().to(env)
 
-                test_label = Label_mask(test_label, test_label, mask)
+                test_label = Label_mask(test_label, test_label_mask)
 
-                test_out = model(test_video, test_seq)
-                _, prediction = torch.max(test_out.data, 1)
-                test_loss.append(criterion(test_out, test_label).detach())
+                test_out = model(test_video, test_seq, test_mask)
+                test_loss.append(criterion(test_out.view(-1, word2vec.seq_max), test_label.view(-1, )).detach())
 
         train_loss = torch.tensor(train_loss).mean().item()
         test_loss = torch.tensor(test_loss).mean().item()
