@@ -36,6 +36,8 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
     for epoch in range(epochs):
         print('Start training epoch:', epoch + 1)
         model = model.train()
+        train_total = 0
+        train_right = 0
         train_loss = []
         for iter, data in enumerate(train_loader):
             train_video, train_seq, train_mask, train_label, train_label_mask = data
@@ -49,17 +51,27 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
 
             optim.zero_grad()
 
-            out = model(train_video, train_seq, train_mask)
+            out, _hid = model(train_video, train_seq, train_mask)
 
             loss = criterion(out.view(-1, word2vec.seq_max), train_label.view(-1, ))
             loss.backward()
+
+            _max, max_index = torch.max(out.view(-1, word2vec.seq_max), 1)
+            train_total += train_label.view(-1, ).size(0)
+            train_right += (max_index == train_label.view(-1, )).sum().item()
+
+            _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 0.01)
+
             train_loss.append(loss.detach())
 
             optim.step()
 
-            if iter != 0 and iter % 2 == 0:
-                print('Iter: ', iter, ' | Loss: %6f' % loss.detach())
+            del _hid
+            print('Iter: ', iter + 1, ' | Loss: %6f' % loss.detach())
 
+        train_acc = train_right / train_total * 100
+        test_total = 0
+        test_right = 0
         test_loss = []
         model = model.eval()
         with torch.no_grad():
@@ -73,14 +85,24 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
 
                 test_label = Label_mask(test_label, test_label_mask)
 
-                test_out = model(test_video, test_seq, test_mask)
-                test_loss.append(criterion(test_out.view(-1, word2vec.seq_max), test_label.view(-1, )).detach())
+                test_out, _hid = model(test_video, test_seq, test_mask)
 
+                _max, max_index = torch.max(test_out.view(-1, word2vec.seq_max), 1)
+                test_total += test_label.view(-1, ).size(0)
+                test_right += (max_index == test_label.view(-1, )).sum().item()
+                test_loss.append(criterion(test_out.view(-1, word2vec.seq_max), test_label.view(-1, )).detach())
+ 
+            del _hid
+
+        test_acc = test_right / test_total * 100
         train_loss = torch.tensor(train_loss).mean().item()
         test_loss = torch.tensor(test_loss).mean().item()
+        if epoch % 10 == 0 and epoch != 0:
+            model.probability *= 1.2
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(test_loss) + '\n')
-        print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Test loss: %6f' % test_loss, '\n')
+        print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc, 
+                '| Test loss: %6f' % test_loss, '| Test Acc. %.4f' % test_acc, '\n')
 
     f = open(saving_name + '.csv', 'w')
     f.writelines(history)

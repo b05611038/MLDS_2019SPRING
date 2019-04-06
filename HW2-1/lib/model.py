@@ -1,10 +1,11 @@
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 class S2VT(nn.Module):
-    def __init__(self, out_size, env, video_seq_lenth = 80, input_size = 4096, hidden_size = 512,
-            attension = 'dot', mode = 'guide', probability = 0):
+    def __init__(self, out_size, env, video_seq_lenth = 80, input_size = 4096, hidden_size = 256,
+            attension = 'dot', mode = 'self', probability = 0.4, predict = False):
         super(S2VT, self).__init__()
 
         self.out_size = out_size
@@ -21,19 +22,30 @@ class S2VT(nn.Module):
 
     def forward(self, video_seq, guided_token, mask = None):
         #mask is the batch mask to select the output of different time step in seq gen.
-        e_h = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
-        e_c = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
+        e_h = torch.zeros(2, video_seq.size(1), self.hidden_size).to(self.env)
+        e_c = torch.zeros(2, video_seq.size(1), self.hidden_size).to(self.env)
 
         video_embedding, (e_h, e_c) = self.encoder(video_seq, e_h, e_c)
-        d_c = torch.zeros(1, video_seq.size(1), self.hidden_size).to(self.env)
-        out = self.decoder(guided_token, video_embedding, d_c)
+        d_c = torch.zeros(1, video_seq.size(1), self.hidden_size * 2).to(self.env)
+        out, hidden = self.decoder(guided_token, video_embedding, d_c)
 
         if mask is None:
             return out
         else:
+            mask = self._flat_mask(mask)
             out = torch.masked_select(out, mask)
             out = out.view(-1, self.out_size)
-            return out
+            return out, hidden
+
+    def _flat_mask(self, mask):
+        new_mask = None
+        for mini_batch in range(mask.size(1)):
+            if new_mask is None:
+                new_mask = mask[:, mini_batch]
+            else:
+                new_mask = torch.cat((new_mask, mask[:, mini_batch]), dim = 0)
+
+        return new_mask.byte()
 
 class Attension(nn.Module):
     def __init__(self, method, hidden_size):
@@ -73,10 +85,10 @@ class S2VTdecoder(nn.Module):
         self.mode = mode
         self.probability = probability
 
-        self.embedding = nn.Embedding(out_size, hidden_size, padding_idx = 1)
+        self.embedding = nn.Embedding(out_size, hidden_size * 2)
         self.embedding_dropout = nn.Dropout(dropout)
-        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers = 1)
-        self.cat = nn.Linear(2 * hidden_size, hidden_size)
+        self.lstm = nn.LSTM(hidden_size * 2, hidden_size * 2, num_layers = 1)
+        self.cat = nn.Linear(4 * hidden_size, hidden_size)
         self.linear = nn.Linear(hidden_size, out_size)
 
         self.attn = Attension(attension, hidden_size)
@@ -93,22 +105,25 @@ class S2VTdecoder(nn.Module):
         if self.mode == 'guide':
             words_embedding = torch.cat((hiddens, input_tokens), dim = 2)
         elif self.mode == 'self':            
-            words_embedding = torch.cat((hiddens, torch.cat((hiddens[1:, :, :], d_h), dim = 0)), dim = 2)
-
+            select = True if random.random() > self.probability else False
+            if select:
+                words_embedding = torch.cat((hiddens, torch.cat((hiddens[1:, :, :], d_h), dim = 0)), dim = 2)
+            else:
+                words_embedding = torch.cat((hiddens, input_tokens), dim = 2)
         outs = self._time_flatten(words_embedding) #seq_length * mini_batch * word_vector
         outs = torch.tanh(self.cat(outs))
         outs = self.linear(outs)
 
-        return outs
+        return outs, [d_h, d_c]
 
     def _time_flatten(self, word_embedding):
         outs = None
         for mini_batch in range(word_embedding.size(1)):
             seqs = word_embedding[:, mini_batch, :]
             if outs is None:
-                outs = seqs.unsqueeze(1)
+                outs = seqs
             else:
-                outs = torch.cat((outs, seqs.unsqueeze(1)), dim = 1)
+                outs = torch.cat((outs, seqs), dim = 0)
 
         return outs
 
@@ -120,7 +135,7 @@ class S2VTencoder(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
 
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers = 1)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers = 1, bidirectional = True)
 
     def forward(self, video_seq, e_h, e_c):
         video_embedding, (e_h, e_c) = self.lstm(video_seq, (e_h, e_c))
