@@ -15,25 +15,49 @@ from lib.model import S2VT
 from lib.dataset import VCDataSet
 from lib.word2vec import Word2vec
 
-def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = True):
+def TrainModel(model, word2vec, saving_name, epochs, batch_size, fix_label, device, save = True):
     model.float().to(env)
     criterion = nn.CrossEntropyLoss()
     criterion.to(env)
     optim = Adam(model.parameters())
 
-    train_set = VCDataSet('./data/training_data/feat', './training_label_dict.pkl',
-            word2vec.seq_max, mark = 'train', mode = 'fix')
-    test_set =  VCDataSet('./data/testing_data/feat', './testing_label_dict.pkl',
-            word2vec.seq_max, mark = 'test', mode = 'fix')
+    if fix_label == 'yes':
+        train_set = VCDataSet('./data/training_data/feat', './training_label_dict.pkl',
+                word2vec.seq_max, mark = 'train', mode = 'fix')
+        test_set = VCDataSet('./data/testing_data/feat', './testing_label_dict.pkl',
+                word2vec.seq_max, mark = 'test', mode = 'fix')
 
-    train_loader = DataLoader(train_set, batch_size = batch_size, shuffle = True)
-    test_loader = DataLoader(test_set, batch_size = batch_size, shuffle = False)
+        train_loader = DataLoader(train_set, batch_size = batch_size, shuffle = True)
+        test_loader = DataLoader(test_set, batch_size = batch_size, shuffle = False)
+        reset_dataset = False
+    elif fix_label == 'no':
+        train_set = VCDataSet('./data/training_data/feat', './training_label_dict.pkl',
+                word2vec.seq_max, mark = 'train', mode = 'random')
+        test_set = VCDataSet('./data/testing_data/feat', './testing_label_dict.pkl',
+                word2vec.seq_max, mark = 'test', mode = 'random')
+
+        train_loader = DataLoader(train_set, batch_size = batch_size, shuffle = True)
+        test_loader = DataLoader(test_set, batch_size = batch_size, shuffle = False)
+        reset_dataset = True
+    else:
+        raise ValueError('Please input yes or no for label fixing setting.')
 
     print('Model Structure:')
     print(model)
 
     history = ['Epoch,Train Loss,Test Loss\n']
     for epoch in range(epochs):
+        if epoch != 0 and epoch % 10 == 0 and reset_dataset:
+            print('Dataset resetting ...')
+            train_set = VCDataSet('./data/training_data/feat', './training_label_dict.pkl',
+                    word2vec.seq_max, mark = 'train', mode = 'random')
+            test_set = VCDataSet('./data/testing_data/feat', './testing_label_dict.pkl',
+                    word2vec.seq_max, mark = 'test', mode = 'random')
+
+            train_loader = DataLoader(train_set, batch_size = batch_size, shuffle = True)
+            test_loader = DataLoader(test_set, batch_size = batch_size, shuffle = False)
+            print('Resetting done.')
+
         print('Start training epoch:', epoch + 1)
         model = model.train()
         train_total = 0
@@ -98,7 +122,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         train_loss = torch.tensor(train_loss).mean().item()
         test_loss = torch.tensor(test_loss).mean().item()
         if epoch % 10 == 0 and epoch != 0:
-            model.probability *= 1.2
+            model.probability *= 1.02
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(test_loss) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc, 
@@ -149,15 +173,15 @@ def LoadModel(name, out_size, env):
         return model
 
 if __name__ == '__main__':
-    if len(sys.argv) < 5:
-        print('Usage: python3 train_S2VT.py [model name] [epoch] [batch_size] [device]')
+    if len(sys.argv) < 6:
+        print('Usage: python3 train_S2VT.py [model name] [epoch] [batch_size] [fix label] [device]')
         exit(0)
 
     start_time = time.time()
     w2v = load_object('./word2vec.pkl')
-    env = Een_setting(int(sys.argv[4]))
+    env = Een_setting(int(sys.argv[5]))
     model = LoadModel(sys.argv[1], w2v.seq_max, env)
-    TrainModel(model, w2v, sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), env)
+    TrainModel(model, w2v, sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4], env)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 

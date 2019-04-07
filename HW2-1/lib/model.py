@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class S2VT(nn.Module):
     def __init__(self, out_size, env, video_seq_lenth = 80, input_size = 4096, hidden_size = 256,
-            attension = 'dot', mode = 'self', probability = 0.4, predict = False):
+            attension = 'dot', mode = 'self', probability = 0.2, predict = False):
         super(S2VT, self).__init__()
 
         self.out_size = out_size
@@ -22,6 +22,9 @@ class S2VT(nn.Module):
 
     def forward(self, video_seq, guided_token, mask = None):
         #mask is the batch mask to select the output of different time step in seq gen.
+        self._check_probability()
+        self.decoder.probability = self.probability
+
         e_h = torch.zeros(2, video_seq.size(1), self.hidden_size).to(self.env)
         e_c = torch.zeros(2, video_seq.size(1), self.hidden_size).to(self.env)
 
@@ -36,6 +39,10 @@ class S2VT(nn.Module):
             out = torch.masked_select(out, mask)
             out = out.view(-1, self.out_size)
             return out, hidden
+
+    def _check_probability(self):
+        if self.probability > 1:
+            self.probability = 1
 
     def _flat_mask(self, mask):
         new_mask = None
@@ -105,7 +112,7 @@ class S2VTdecoder(nn.Module):
         if self.mode == 'guide':
             words_embedding = torch.cat((hiddens, input_tokens), dim = 2)
         elif self.mode == 'self':            
-            select = True if random.random() > self.probability else False
+            select = True if random.random() < self.probability else False
             if select:
                 words_embedding = torch.cat((hiddens, torch.cat((hiddens[1:, :, :], d_h), dim = 0)), dim = 2)
             else:
