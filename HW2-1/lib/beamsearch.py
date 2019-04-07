@@ -8,7 +8,7 @@ from lib.utils import *
 from lib.model import S2VT
 
 class BeamSearch(nn.Module):
-    def __init__(self, whole_model, word2vec, env, k = 2, max_length = 40):
+    def __init__(self, whole_model, word2vec, env, k = 2, max_length = 20):
         super(BeamSearch, self).__init__()
 
         self.whole_model = whole_model
@@ -43,6 +43,11 @@ class BeamSearch(nn.Module):
         return seq
 
     def _decode(self, video, input_token, h, c):
+        input_token = input_token.to(self.env)
+        video = video.to(self.env)
+        h = h.to(self.env)
+        c = c.to(self.env)
+
         input_token = self.embedding(input_token)
         input_token = self.embedding_dropout(input_token)
 
@@ -80,8 +85,8 @@ class BeamSearch(nn.Module):
         last_word = last_word.view(1, 1)
         new_out, hidden = self._decode(video_embedding, last_word, h, c)
         pro, index = torch.topk(new_out, self.k)
-        pro = pro.detach().squeeze()
-        index = index.detach().squeeze()
+        pro = pro.detach().squeeze().to('cpu')
+        index = index.detach().squeeze().to('cpu')
         for i in range(self.k):
             if (index[i] == self.eos).item() == 1:
                 new_pro = past_seq[1] * pro[i]
@@ -96,6 +101,7 @@ class BeamSearch(nn.Module):
     def _load_trained_model(self, path):
         s2vt = torch.load(path, map_location = 'cpu')
         s2vt = s2vt.eval()
+        s2vt.to(self.env)
         return s2vt.encoder, s2vt.decoder
 
 

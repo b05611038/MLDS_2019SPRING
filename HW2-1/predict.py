@@ -4,6 +4,7 @@ import csv
 import time
 import numpy as np
 import torch
+import torch.cuda as cuda
 
 from lib.utils import *
 from lib.beamsearch import BeamSearch
@@ -21,8 +22,8 @@ def Een_setting(device):
     return env
 
 def Grab_test(path):
+    test_set = []
     for file in os.listdir(path):
-        test_set = []
         if file.endswith('.npy'):
             video = np.load(path + '/' + file)
             test_set.append([video, file.replace('.npy', '')])
@@ -55,7 +56,7 @@ def Predict(model, w2v, test_set, env, k):
 
         sentence += '\n'
         outcome.append(sentence)
-        if i != 0 and i % 5 == 0:
+        if i != 0 and (i + 1) % 5 == 0:
             print('Progress:', i + 1, '/', len(test_set))
 
     return outcome
@@ -69,7 +70,6 @@ def In_file(outcome):
 def Clean(word):
     word = word.replace('(', '')
     word = word.replace(')', '')
-    print(word)
     if word == '<eos>':
         return '', False
     elif word == '<bos>':
