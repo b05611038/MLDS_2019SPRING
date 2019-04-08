@@ -5,13 +5,15 @@ import numpy as np
 from lib.utils import *
 
 class Word2vec():
-    def __init__(self, path, embedding, least_freq):
+    def __init__(self, path, embedding, least_freq, seq_max_length, seq_min_length):
         self.path = path
         self.embedding = embedding
         self.least_freq = least_freq
 
         self.data = self._from_json(path)
         self.word_dict, self.sentences = self._word_dict(self.data)
+        self.seq_max_length = seq_max_length
+        self.seq_min_length = seq_min_length
         #the last item in the embedding dictionary is all unknown word
         self.__embedding_dict, self.__transberse_embedding, self.seq_max = self._embedding(embedding)
 
@@ -22,15 +24,19 @@ class Word2vec():
         for video in range(len(data)):
             data_dict[data[video]['id']] = []
             for cap in range(len(data[video]['caption'])):
-                strings = data[video]['caption'][cap].replace('.', '').lower().split(' ')
-                seq = np.empty(len(strings) + 2, )
-                seq[0] = self.w2v('<bos>')
-                for word in range(1, len(strings) + 1):
-                    seq[word] = self.w2v(strings[word - 1])
+                strings = data[video]['caption'][cap].replace('.', '').replace('(', '').replace(')', '')
+                strings = strings.lower().split(' ')
+                if len(strings) >= self.seq_min_length and len(strings) <= self.seq_max_length:
+                    seq = np.empty(len(strings) + 2, )
+                    seq[0] = self.w2v('<bos>')
+                    for word in range(1, len(strings) + 1):
+                        seq[word] = self.w2v(strings[word - 1])
 
-                seq[len(strings) + 1] = self.w2v('<eos>')
+                    seq[len(strings) + 1] = self.w2v('<eos>')
 
-                data_dict[data[video]['id']].append(seq)
+                    data_dict[data[video]['id']].append(seq)
+                else:
+                    pass
 
         if save is not None:
             save_object(save, data_dict)
@@ -97,7 +103,8 @@ class Word2vec():
         for video in range(len(data)):
             for cap in range(len(data[video]['caption'])):
                 sentences.append(data[video]['caption'][cap].lower())
-                strings = data[video]['caption'][cap].replace('.', '').lower().split(' ')
+                strings = data[video]['caption'][cap].replace('.', '').replace('(', '').replace(')', '')
+                strings = strings.lower().split(' ')
                 for word in range(len(strings)):
                     if strings[word] not in word_dict.keys():
                         word_dict[strings[word]] = [len(word_dict), 1] #index, freqency
