@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class S2VT(nn.Module):
     def __init__(self, out_size, env, video_seq_lenth = 80, input_size = 4096, hidden_size = 256,
-            attension = 'dot', mode = 'self', probability = 0.2, predict = False):
+            attension = 'general', mode = 'self', probability = 0.2, predict = False):
         super(S2VT, self).__init__()
 
         self.out_size = out_size
@@ -59,28 +59,28 @@ class Attension(nn.Module):
         super(Attension, self).__init__()
 
         self.method = method
-        if self.method not in ['dot']:
+        if self.method not in ['dot', 'general']:
             raise ValueError(self.method, "is not an appropriate attention method.")
         self.hidden_size = hidden_size
         
-        #if self.method == 'general':
-        #    self.attn = nn.Linear(hidden_size, hidden_size)
+        if self.method == 'general':
+            #input is bidirectional LSTM
+            self.attn = nn.Linear(hidden_size * 2, hidden_size * 2)
 
     def _dot_score(self, hidden, encoder_out):
         encoder_out = encoder_out.unsqueeze(1)
         return torch.sum(torch.mul(encoder_out, hidden), dim = 3).transpose(0, 2)
-    '''
+    
     def _general_score(self, hidden, encoder_out):
-        encoder_out = encoder_out.view(-1, hidden_size)
-        hidden = hidden.view(-1, hidden_size)
         energy = self.attn(encoder_out)
-        return torch.sum(hidden * energy, dim = 2)
-    '''
+        energy = energy.unsqueeze(1)
+        return torch.sum(torch.mul(hidden, energy), dim = 3).transpose(0, 2)
+    
     def forward(self, hidden, encoder_out):
         if self.method == 'dot':
             attn_energies = self._dot_score(hidden, encoder_out)
-        #elif self.method == 'general':
-        #    attn_energies = self._general_score(hidden, encoder_out)
+        elif self.method == 'general':
+            attn_energies = self._general_score(hidden, encoder_out)
         return F.softmax(attn_energies, dim = 2)
 
 class S2VTdecoder(nn.Module):
