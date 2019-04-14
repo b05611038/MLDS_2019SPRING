@@ -20,6 +20,42 @@ class Word2vec():
         word_dict = self._word_dict(text)
         self.__embedding_dict, self.__transberse_embedding, self.seq_max = self._embedding(embedding, word_dict)
 
+    #only support for MLDS hw2-2 training txt file
+    def sentence_pair(self, txt_path, save = False):
+        pair = []
+        text = self._from_txt(txt_path)
+        for index in range(len(text) - 1):
+            last = text[index]
+            then = text[index + 1]
+            if last == '+++$+++\n' or then == '+++$+++\n':
+                continue
+
+            last = self._clean_string(last)
+            then = self._clean_string(then)
+            if len(last) <= self.seq_length_max and len(last) >= self.seq_length_min and len(then) <= self.seq_length_max and len(then) >= self.seq_length_min:
+                arr_last = np.empty(len(last), )
+                arr_then = np.empty(len(then) + 2, ) #<bos>, sentence, <eos>
+
+                for word in range(len(last)):
+                    arr_last[word] = self.w2v(last[word])
+
+                arr_then[0] = self.w2v('<bos>')
+                for word in range(1, len(then) + 1):
+                    arr_then[word] = self.w2v(then[word - 1])
+
+                arr_then[len(then) + 1] = self.w2v('<eos>')
+
+                pair.append([arr_last, arr_then])
+
+            else:
+                pass
+
+        if save is not None:
+            save_object(save, pair)
+            return pair
+        else:
+            return pair
+
     def w2v(self, word):
         word = word.lower()
 
