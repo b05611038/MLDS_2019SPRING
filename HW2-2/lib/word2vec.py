@@ -135,3 +135,5 @@ class Word2vec():
         f.close()
 
         return text
+
+
