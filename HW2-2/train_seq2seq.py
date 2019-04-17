@@ -64,9 +64,8 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
             optim.step()
 
             del _hid
-            #if iter % 5 == 0 and iter != 0:
-            #    print('Iter: ', iter + 1, ' | Loss: %6f' % loss.detach())
-            print('Iter: ', iter + 1, ' | Loss: %6f' % loss.detach())
+            if iter % 5 == 0 and iter != 0:
+                print('Iter: ', iter, ' | Loss: %6f' % loss.detach())
 
         train_acc = train_right / train_total * 100
         train_loss = torch.tensor(train_loss).mean().item()

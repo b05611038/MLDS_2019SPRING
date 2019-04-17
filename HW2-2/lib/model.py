@@ -20,7 +20,7 @@ class Seq2seq(nn.Module):
 
         self.encoder = seq2seqEncoder(out_size, hidden_size, bidirectional)
         self.decoder = seq2seqDecoder(out_size, hidden_size, self.direction,
-                attention, mode, self.probability, self.bos)
+                attention, mode, self.probability, self.bos, self.env)
     def forward(self, input_tokens, guided_token, mask = None):
         #mask is the batch mask to select the output of different time step in seq gen.
         self._check_probability()
@@ -103,7 +103,7 @@ class Attention(nn.Module):
         return F.softmax(attn_energies, dim = 2)
 
 class seq2seqDecoder(nn.Module):
-    def __init__(self, out_size, hidden_size, direction, attention, mode, probability, bos, dropout = 0.1):
+    def __init__(self, out_size, hidden_size, direction, attention, mode, probability, bos, env, dropout = 0.1):
         super(seq2seqDecoder, self).__init__()
 
         self.out_size = out_size
@@ -113,6 +113,7 @@ class seq2seqDecoder(nn.Module):
         self.mode = mode
         self.probability = probability
         self.bos = bos
+        self.env = env
         self.dropout = dropout
 
         self.decoder_embedding = nn.Embedding(out_size, hidden_size * direction)
@@ -138,7 +139,7 @@ class seq2seqDecoder(nn.Module):
         elif self.mode == 'self':
             select = True if random.random() < self.probability else False
             if select:
-                begin = torch.tensor(self.bos).expand(encode_hidden.size(1), -1).transpose(0, 1)
+                begin = torch.tensor([self.bos]).unsqueeze(0).repeat(1, encode_hidden.size(1)).to(self.env)
                 begin = self.decoder_embedding(begin)
                 begin = self.decoder_embedding_dropout(begin)
                 out_selves = torch.cat((begin, hiddens[1:, :, :]), dim = 0)
