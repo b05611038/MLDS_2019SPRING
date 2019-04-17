@@ -15,13 +15,14 @@ class CBDataset(Dataset):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        self.sentence_pair = load_object(self.sentence_pair_path  #list object [last sentence, next sentnece]
+        self.sentence_pair = load_object(self.sentence_pair_path)  #list object [last sentence, next sentnece]
         self.data, self.guided_seq, self.guided_mask, self.label_seq, self.label_mask = self._build(self.sentence_pair)
 
     def __getitem__(self, index):
         data = torch.tensor(self.data[:, index, :])
         guided_seq = torch.tensor(self.guided_seq[:, index, :])
-        guided_mask = torch.tensor(self.guided_mask[index, :, :]).byte()
+        guided_mask = torch.tensor(self.guided_mask[index, :])
+        guided_mask = guided_mask.unsqueeze(1).repeat([1, self.mask_max]).byte()
         label_seq = torch.tensor(self.label_seq[index, :])
         label_mask = torch.tensor(self.label_mask[index, :]).byte()
 
@@ -58,7 +59,7 @@ class CBDataset(Dataset):
             label_mask = arr[4]
         else:
             mask_index = []
-            foward_guided = []
+            forward_guided = []
             forward_label = []
             max_data_seq = 0
             max_guided_seq = 0
@@ -78,14 +79,17 @@ class CBDataset(Dataset):
 
             data = np.empty((max_data_seq, len(sentence_pair), 1))
             guided_seq = np.zeros((max_guided_seq - 1, len(sentence_pair), 1)) #<bos>, ... (no <eos>)
-            guided_mask = np.ones((len(sentence_pair), max_guided_seq - 1, self.mask_max)) # batch * seq * output_length
+            # guided_mask = np.ones((len(sentence_pair), max_guided_seq - 1, self.mask_max)) 
+            # batch * seq * output_length
+            # too big in the origin data, extend the data in __getitem__
+            guided_mask = np.ones((len(sentence_pair), max_guided_seq - 1))
             label_seq = np.zeros((len(sentence_pair), max_guided_seq - 1)) # for alreadt time flatten data
             label_mask = np.ones((len(sentence_pair), max_guided_seq - 1))
             for i in range(len(sentence_pair)):
                 data[0: sentence_pair[i][0].shape[0], i, 0] = sentence_pair[i][0]
                 guided_seq[0: forward_guided[i].shape[0], i, 0] = forward_guided[i]
                 label_seq[i, 0: forward_label[i].shape[0]] = forward_label[i]
-                guided_mask[i, mask_index[i]:, :] = 0
+                guided_mask[i, mask_index[i]:] = 0
                 label_mask[i, mask_index[i]: ] = 0
 
             if save:
