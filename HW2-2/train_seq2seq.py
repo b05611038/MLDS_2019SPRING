@@ -73,7 +73,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         if epoch % 10 == 0 and epoch != 0:
             model.probability *= 1.02
 
-        history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(test_loss) + '\n')
+        history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc)
 
     f = open(saving_name + '.csv', 'w')
