@@ -45,35 +45,63 @@ class BeamSearch(nn.Module):
 
     def _beam_search(self, bos, sentence_embedding, c):
         self.seq = []
-        bos = [torch.tensor([bos]), torch.tensor(1).float()]
+        bos = [[torch.tensor([bos]), torch.tensor(1).float(), sentence_embedding[sentence_embedding.size(0) - 1:, :, :], c]]
         if self.k == 1:
-            self._greedy_search(bos, sentence_embedding, sentence_embedding[sentence_embedding.size(0) - 1:, :, :], c)
+            self._greedy_search(bos, sentence_embedding)
         else:
-            self._k_search(bos, sentence_embedding, sentence_embedding[sentence_embedding.size(0) - 1:, :, :], c)
+            self._k_search(bos, sentence_embedding)
         return None
 
-    def _greedy_search(self, past_seq, sentence_embedding, h, c):
-        pass
-
-    def _k_search(self, past_seq, sentence_embedding, h, c):
-        if past_seq[0].size(0) >= self.max_length:
-            return None
-        last_word = past_seq[0][past_seq[0].size(0) - 1:]
+    def _greedy_search(self, past_seq, sentence_embedding):
+        last_word = past_seq[0][0][past_seq[0].size(0) - 1:]
         last_word = last_word.view(1, 1)
-        new_out, hidden = self._decode(sentence_embedding, last_word, h, c)
-        pro, index = torch.topk(new_out, self.k)
+        new_out, hidden = self._decode(sentence_embedding, last_word, past_seq[0][2], past_seq[0][3])
+        pro, index = torch.max(new_out, index)
         pro = pro.detach().squeeze().to('cpu')
         index = index.detach().squeeze().to('cpu')
-        for i in range(self.k):
-            if (index[i] == self.eos).item() == 1:
-                new_pro = past_seq[1] * pro[i]
-                seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
-                self.seq.append(seq)
-                return None
-            else:
-                new_pro = past_seq[1] * pro[i]
-                seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
-                self._k_search(seq, sentence_embedding, hidden[0], hidden[1])
+
+        if (index[i] == self.eos).item() == 1:
+            new_pro = past_seq[0][1] * pro[i]
+            seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
+            self.seq.append(seq)
+            return None
+
+        elif past_seq[0].size(0) == self.max_length:
+            new_pro = past_seq[0][1] * pro[i]
+            seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
+            self.seq.append(seq)
+            return None
+
+        else:
+            new_pro = past_seq[1] * pro[i]
+            seq = [[torch.cat((past_seq[0][0], torch.tensor([index[i]])), dim = 0), new_pro, hidden[0], hidden[1]]]
+            self._greedy_search(seq, sentence_embedding)
+
+    def _k_search(self, past_seq, sentence_embedding):
+        length = len(past_seq)
+        seq_temp = []
+        if self.k < length:
+            length = self.k
+
+        for beam in range(length):
+            last_word = past_seq[beam][past_seq[beam].size(0) - 1:]
+            last_word = last_word.view(1, 1)
+            new_out, hidden = self._decode(sentence_embedding, last_word, past_seq[beam][2],  past_seq[beam][3])
+            pro, index = torch.topk(new_out, self.k)
+            index = index.detach().squeeze().to('cpu')
+            for i in range(self.k):
+                new_pro = past_seq[beam][1] * pro[i]
+                if (index[i] == self.eos).item() == 1:
+                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                    self.seq.append(seq)
+                    return None
+                else:
+                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro, hidden[0], hidden[1]]
+                    seq_temp.append(seq)
+
+        seq_temp.sort(key = lambda pro: pro[1])
+        seq_temp[:self.k]
+        self._k_search(seq_temp, sentence_embedding)
 
     def _decode(self, sentence, input_token, h, c):
         input_token = input_token.to(self.env)
