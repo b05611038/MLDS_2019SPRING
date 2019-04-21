@@ -21,7 +21,41 @@ class Word2vec():
         self.__embedding_dict, self.__transberse_embedding, self.seq_max = self._embedding(embedding, word_dict)
 
     #only support for MLDS hw2-2 training txt file
-    def sentence_pair(self, txt_path, save = False):
+    def combine_qa(self, question, answer, save = None):
+        pair = []
+        questions = self._from_txt(question)
+        answers = self._from_txt(answer)
+        if len(questions) != len(answers):
+            raise IndexError('Question file and Answer file index mismatch.')
+
+        for index in range(len(questions)):
+            last = questions[index]
+            then = answers[index]
+            last = self._clean_string(last)
+            then = self._clean_string(then)
+
+            arr_last = np.empty(len(last), )
+            arr_then = np.empty(len(then) + 2, ) #<bos>, sentence, <eos>
+
+            for word in range(len(last)):
+                arr_last[word] = self.w2v(last[word])
+
+            arr_then[0] = self.w2v('<bos>')
+            for word in range(1, len(then) + 1):
+                arr_then[word] = self.w2v(then[word - 1])
+
+            arr_then[len(then) + 1] = self.w2v('<eos>')
+
+            pair.append([arr_last, arr_then])
+
+        if save is not None:
+            save_object(save, pair)
+            return pair
+        else:
+            return pair
+
+    #only support for MLDS hw2-2 training txt file
+    def sentence_pair(self, txt_path, save = None):
         pair = []
         text = self._from_txt(txt_path)
         for index in range(len(text) - 1):
@@ -123,9 +157,11 @@ class Word2vec():
 
         return word_dict
 
-    def _clean_string(self, sentnece_list):
-        new = [w for w in sentnece_list if not re.match(r'[A-Z]+', w, re.I)]
+    def _clean_string(self, sentence):
+        sentence_list = sentence.replace('\n', '').split(' ')
+        new = [w for w in sentence_list if not re.match(r'[A-Z]+', w, re.I)]
         new = [re.sub('[0-9]', '', w) for w in new]
+        new = [w for w in new if w]
 
         return new
 

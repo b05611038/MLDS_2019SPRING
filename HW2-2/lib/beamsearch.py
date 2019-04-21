@@ -13,7 +13,7 @@ class BeamSearch(nn.Module):
 
         self.whole_model = whole_model
         self.env = env
-        self.word2vec = load_object(word2vec)
+        self.word2vec = word2vec
         self.bos = torch.tensor(self.word2vec.w2v('<bos>'))
         self.eos = torch.tensor(self.word2vec.w2v('<eos>'))
         self.k = k
@@ -34,6 +34,7 @@ class BeamSearch(nn.Module):
         e_h = torch.zeros(self.direction, sentence.size(1), self.encoder.hidden_size).to(self.env)
         e_c = torch.zeros(self.direction, sentence.size(1), self.encoder.hidden_size).to(self.env)
 
+        print(sentence.size(), e_h.size(), e_c.size())
         sentence_embedding, (e_h, e_c) = self.encoder(sentence, e_h, e_c)
         d_c = torch.zeros(1, sentence.size(1), self.encoder.hidden_size * self.direction).to(self.env)
 
@@ -53,28 +54,25 @@ class BeamSearch(nn.Module):
         return None
 
     def _greedy_search(self, past_seq, sentence_embedding):
-        last_word = past_seq[0][0][past_seq[0].size(0) - 1:]
+        last_word = past_seq[0][0][past_seq[0][0].size(0) - 1:]
         last_word = last_word.view(1, 1)
         new_out, hidden = self._decode(sentence_embedding, last_word, past_seq[0][2], past_seq[0][3])
-        pro, index = torch.max(new_out, index)
+        pro, index = torch.max(new_out, 1)
         pro = pro.detach().squeeze().to('cpu')
         index = index.detach().squeeze().to('cpu')
-
-        if (index[i] == self.eos).item() == 1:
-            new_pro = past_seq[0][1] * pro[i]
-            seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
+        new_pro = past_seq[0][1] * pro
+        if (index == self.eos).item() == 1:
+            seq = [torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro]
             self.seq.append(seq)
             return None
 
-        elif past_seq[0].size(0) == self.max_length:
-            new_pro = past_seq[0][1] * pro[i]
-            seq = [torch.cat((past_seq[0], torch.tensor([index[i]])), dim = 0), new_pro]
+        elif past_seq[0][0].size(0) == self.max_length:
+            seq = [torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro]
             self.seq.append(seq)
             return None
 
         else:
-            new_pro = past_seq[1] * pro[i]
-            seq = [[torch.cat((past_seq[0][0], torch.tensor([index[i]])), dim = 0), new_pro, hidden[0], hidden[1]]]
+            seq = [[torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro, hidden[0], hidden[1]]]
             self._greedy_search(seq, sentence_embedding)
 
     def _k_search(self, past_seq, sentence_embedding):
@@ -84,11 +82,12 @@ class BeamSearch(nn.Module):
             length = self.k
 
         for beam in range(length):
-            last_word = past_seq[beam][past_seq[beam].size(0) - 1:]
+            last_word = past_seq[beam][0][past_seq[beam][0].size(0) - 1:]
             last_word = last_word.view(1, 1)
             new_out, hidden = self._decode(sentence_embedding, last_word, past_seq[beam][2],  past_seq[beam][3])
             pro, index = torch.topk(new_out, self.k)
             index = index.detach().squeeze().to('cpu')
+            pro = pro.detach().squeeze().to('cpu')
             for i in range(self.k):
                 new_pro = past_seq[beam][1] * pro[i]
                 if (index[i] == self.eos).item() == 1:
@@ -113,8 +112,8 @@ class BeamSearch(nn.Module):
         input_token = self.decoder_embedding_dropout(input_token)
 
         hiddens, (d_h, d_c) = self.decoder_lstm(input_token, (h, c))
-        attn_weight = self.attn(hiddens, video)
-        words_embedding = attn_weight.bmm(video.transpose(0, 1))
+        attn_weight = self.attn(hiddens, sentence)
+        words_embedding = attn_weight.bmm(sentence.transpose(0, 1))
         words_embedding = torch.cat((hiddens, input_token), dim = 2)
         outs = words_embedding.view(-1, self.encoder.hidden_size * self.direction * 2)
         outs = torch.tanh(self.cat(outs))
@@ -129,5 +128,15 @@ class BeamSearch(nn.Module):
         seq2seq = seq2seq.to(self.env)
         bidirectional = seq2seq.bidirectional
         return seq2seq.encoder, seq2seq.decoder, bidirectional
+
+    def _biggest(self, seq):
+        pro = 0
+        out = None
+        for i in range(len(seq)):
+            if (seq[i][1] > pro).item() == 1:
+                pro = seq[i][1].detach()
+                out = seq[i][0]
+
+        return out
 
 

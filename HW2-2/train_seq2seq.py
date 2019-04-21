@@ -57,7 +57,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
             train_total += label.view(-1, ).size(0)
             train_right += (max_index == label.view(-1, )).sum().item()
 
-            _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 0.01)
+            _ = torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
 
             train_loss.append(loss.detach())
 
@@ -70,8 +70,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         train_acc = train_right / train_total * 100
         train_loss = torch.tensor(train_loss).mean().item()
 
-        if epoch % 10 == 0 and epoch != 0:
-            model.probability *= 1.02
+        model.probability *= 1.05
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc)
@@ -128,8 +127,16 @@ if __name__ == '__main__':
     start_time = time.time()
     w2v = load_object('./word2vec.pkl')
     env = Een_setting(int(sys.argv[7]))
+
+    if sys.argv[3].lower() == 'true':
+        bidir = True
+    elif  sys.argv[3].lower() == 'false':
+        bidir = False
+    else:
+        raise ValueError('Please input correct args [preprocess], true or false.')
+
     model = LoadModel(sys.argv[1], w2v.seq_max, env, w2v.seq_length_max,
-            int(sys.argv[2]), bool(sys.argv[3]), sys.argv[4])
+            int(sys.argv[2]), bidir, sys.argv[4])
     TrainModel(model, w2v, sys.argv[1], int(sys.argv[5]), int(sys.argv[6]), env)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 

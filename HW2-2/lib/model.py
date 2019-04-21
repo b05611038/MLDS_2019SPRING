@@ -181,7 +181,7 @@ class seq2seqEncoder(nn.Module):
         self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers = 1, bidirectional = bidirectional, dropout = 0.1)
 
     def forward(self, word_seq, e_h, e_c):
-        word_seq = torch.squeeze(word_seq)
+        word_seq = word_seq.squeeze(2)
         word_seq = self.encoder_embedding(word_seq)
         word_seq = self.encoder_embedding_dropout(word_seq)
         word_embedding, (e_h, e_c) = self.lstm(word_seq, (e_h, e_c))

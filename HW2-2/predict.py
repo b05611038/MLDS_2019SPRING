@@ -30,12 +30,12 @@ def Grab_input(path, word2vec):
 
     for i in range(len(text)):
         sentence = text[i]
-        sentence = [w for w in sentnece if not re.match(r'[A-Z]+', w, re.I)] #may change
+        sentence = [w for w in sentence if not re.match(r'[A-Z]+', w, re.I)] #may change
         sentence = [re.sub('[0-9]', '', w) for w in sentence] #may change
 
         arr_sentence = np.empty(len(sentence), )
         for word in range(len(sentence)):
-            arr_sentence[word] = wor2vec.w2v(sentence[word])
+            arr_sentence[word] = word2vec.w2v(sentence[word])
 
         test_set.append(arr_sentence)
 
@@ -50,7 +50,7 @@ def Predict(model, word2vec, test_set, env, k):
 
         sentence = ''
         for word in range(seq.size(0)):
-            sentence += word2vec.v2w(torch.tensor([seq[word]]))
+            sentence += Clean(word2vec.v2w(torch.tensor([seq[word]])))
 
         sentence += '\n'
         outcome.append(sentence)
@@ -59,8 +59,22 @@ def Predict(model, word2vec, test_set, env, k):
 
     return outcome
 
-def In_file(outcome):
-    f = open('output.txt', 'w')
+def Clean(word):
+    if word == '<padding>':
+        return ''
+    elif word == '<unknown>':
+        return ''
+    elif word == '<bos>':
+        return ''
+    elif word == '<eos>':
+        return ''
+    elif word == '<padding>':
+        return ''
+    else:
+        return word
+
+def In_file(outcome, model):
+    f = open('output_' + model.replace('.pkl', '') + '.txt', 'w')
     f.writelines(outcome)
     f.close()
     print('Writing outcome to ./output.txt done.')
@@ -75,7 +89,7 @@ if __name__ == '__main__':
     w2v = load_object(sys.argv[3])
     test_set = Grab_input(sys.argv[1], w2v)
     outcome = Predict(sys.argv[2], w2v, test_set, env, int(sys.argv[4]))
-    In_file(outcome)
+    In_file(outcome, sys.argv[2])
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
         
