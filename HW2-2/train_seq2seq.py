@@ -75,7 +75,7 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc)
 
-    f = open(saving_name + '.csv', 'w')
+    f = open('his_' + saving_name + '.csv', 'w')
     f.writelines(history)
     f.close()
 

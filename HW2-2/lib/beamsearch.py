@@ -34,7 +34,6 @@ class BeamSearch(nn.Module):
         e_h = torch.zeros(self.direction, sentence.size(1), self.encoder.hidden_size).to(self.env)
         e_c = torch.zeros(self.direction, sentence.size(1), self.encoder.hidden_size).to(self.env)
 
-        print(sentence.size(), e_h.size(), e_c.size())
         sentence_embedding, (e_h, e_c) = self.encoder(sentence, e_h, e_c)
         d_c = torch.zeros(1, sentence.size(1), self.encoder.hidden_size * self.direction).to(self.env)
 
@@ -65,12 +64,10 @@ class BeamSearch(nn.Module):
             seq = [torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro]
             self.seq.append(seq)
             return None
-
-        elif past_seq[0][0].size(0) == self.max_length:
+        elif past_seq[0][0].size(0) == self.max_length - 1:
             seq = [torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro]
             self.seq.append(seq)
             return None
-
         else:
             seq = [[torch.cat((past_seq[0][0], torch.tensor([index])), dim = 0), new_pro, hidden[0], hidden[1]]]
             self._greedy_search(seq, sentence_embedding)
@@ -91,6 +88,10 @@ class BeamSearch(nn.Module):
             for i in range(self.k):
                 new_pro = past_seq[beam][1] * pro[i]
                 if (index[i] == self.eos).item() == 1:
+                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                    self.seq.append(seq)
+                    return None
+                elif past_seq[beam][0].size(0) == self.max_length - 1:
                     seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
                     self.seq.append(seq)
                     return None
@@ -133,7 +134,7 @@ class BeamSearch(nn.Module):
         pro = 0
         out = None
         for i in range(len(seq)):
-            if (seq[i][1] > pro).item() == 1:
+            if (seq[i][1] >= pro).item() == 1:
                 pro = seq[i][1].detach()
                 out = seq[i][0]
 

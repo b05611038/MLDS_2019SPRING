@@ -6,18 +6,18 @@ import torch
 from lib.utils import *
 
 class Word2vec():
-    def __init__(self, embedding, path, least_freq, seq_length_min, seq_length_max):
+    def __init__(self, embedding, path_list, least_freq, seq_length_min, seq_length_max):
         self.embedding = embedding
         if embedding not in ['one_hot']:
             raise ValueError(self.embedding, 'not in the word embedding method.')
 
-        self.path = path
-        self.least_freq = least_freq
+        self.path_list = path_list
+        self.least_freq = least_freq * len(path_list)
         self.seq_length_min = seq_length_min
         self.seq_length_max = seq_length_max
 
-        text = self._from_txt(path)
-        word_dict = self._word_dict(text)
+        text_list = self._from_txt_list(path_list)
+        word_dict = self._word_dict(text_list)
         self.__embedding_dict, self.__transberse_embedding, self.seq_max = self._embedding(embedding, word_dict)
 
     #only support for MLDS hw2-2 training txt file
@@ -142,18 +142,20 @@ class Word2vec():
 
         return embedding_dict, transberse_embedding, index + 2
 
-    def _word_dict(self, sentence):
+    def _word_dict(self, sentence_file):
         word_dict = {}
-        for index in range(len(sentence)):
-            line = sentence[index]
-            if line == '+++$+++\n':
-                continue
-            line = self._clean_string(line)
-            for word in range(len(line)):
-                if line[word] not in word_dict.keys():
-                    word_dict[line[word]] = [len(word_dict), 1] # index, frequency
-                else:
-                    word_dict[line[word]][1] += 1
+        for files in range(len(sentence_file)):
+            sentence = sentence_file[files]
+            for index in range(len(sentence)):
+                line = sentence[index]
+                if line == '+++$+++\n':
+                    continue
+                line = self._clean_string(line)
+                for word in range(len(line)):
+                    if line[word] not in word_dict.keys():
+                        word_dict[line[word]] = [len(word_dict), 1] # index, frequency
+                    else:
+                        word_dict[line[word]][1] += 1
 
         return word_dict
 
@@ -164,6 +166,16 @@ class Word2vec():
         new = [w for w in new if w]
 
         return new
+
+    def _from_txt_list(self, path_list):
+        text_list = []
+        for paths in path_list:
+            f = open(paths, 'r')
+            text_temp = f.readlines()
+            f.close()
+            text_list.append(text_temp)
+
+        return text_list
 
     def _from_txt(self, path):
         f = open(path, 'r')

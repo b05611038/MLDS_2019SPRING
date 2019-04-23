@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
 
     if preprocess:
-        word2vec = Word2vec(embedding = sys.argv[1], path = './data/clr_conversation.txt', 
+        word2vec = Word2vec(embedding = sys.argv[1], path_list = ['./data/question.txt', './data/answer.txt'], 
                 least_freq = int(sys.argv[3]), 
                 seq_length_min = 2, 
                 seq_length_max = 15)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         word2vec.combine_qa('./data/question.txt', './data/answer.txt', save = './data/sentence_pair.pkl')
         
     else:
-        word2vec = Word2vec(embedding = sys.argv[1], path = './data/clr_conversation.txt',
+        word2vec = Word2vec(embedding = sys.argv[1], path_list = ['./data/question.txt', './data/answer.txt'],
                 least_freq = int(sys.argv[3]), 
                 seq_length_min = int(sys.argv[5]), 
                 seq_length_max = int(sys.argv[4]))
