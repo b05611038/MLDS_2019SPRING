@@ -125,9 +125,9 @@ class Word2vec():
             transberse_embedding[0] = '<padding>'
             embedding_dict['<padding>'] = 0
             transberse_embedding[1] = '<bos>'
-            embedding_dict['<padding>'] = 1
+            embedding_dict['<bos>'] = 1
             transberse_embedding[2] = '<eos>'
-            embedding_dict['<padding>'] = 2
+            embedding_dict['<eos>'] = 2
 
             index = 3
             for word in word_dict.keys():

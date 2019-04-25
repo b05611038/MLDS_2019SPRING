@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 import torch
 import torch.cuda as cuda
 import torch.nn as nn
@@ -39,7 +40,7 @@ class BeamSearch(nn.Module):
 
         self._beam_search(self.bos, sentence_embedding, d_c)
         seq = copy.deepcopy(self.seq)
-        seq = self._biggest(seq)
+        seq = self._choice(seq)
         self.seq = None
         return seq
 
@@ -130,13 +131,17 @@ class BeamSearch(nn.Module):
         bidirectional = seq2seq.bidirectional
         return seq2seq.encoder, seq2seq.decoder, bidirectional
 
-    def _biggest(self, seq):
-        pro = 0
-        out = None
+    def _choice(self, seq):
+        weight = None
         for i in range(len(seq)):
-            if (seq[i][1] >= pro).item() == 1:
-                pro = seq[i][1].detach()
-                out = seq[i][0]
+            if weight is None:
+                weight = seq[i][1].detach().unsqueeze(0).numpy()
+            else:
+                weight = np.concatenate((weight, seq[i][1].detach().unsqueeze(0).numpy()), axis = 0)
+
+        weight = weight / np.sum(weight)
+        select_index = np.random.choice(np.arange(len(seq)), p = weight)
+        out = seq[select_index][0]
 
         return out
 
