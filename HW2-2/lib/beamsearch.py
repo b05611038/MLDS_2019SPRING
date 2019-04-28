@@ -17,6 +17,7 @@ class BeamSearch(nn.Module):
         self.word2vec = word2vec
         self.bos = torch.tensor(self.word2vec.w2v('<bos>'))
         self.eos = torch.tensor(self.word2vec.w2v('<eos>'))
+        self.padding = torch.tensor(self.word2vec.w2v('<padding>'))
         self.k = k
         self.max_length = max_length
         self.seq = None
@@ -39,10 +40,19 @@ class BeamSearch(nn.Module):
         d_c = torch.zeros(1, sentence.size(1), self.encoder.hidden_size * self.direction).to(self.env)
 
         self._beam_search(self.bos, sentence_embedding, d_c)
+        if len(self.seq) == 0:
+            self._remedy(self.bos, sentence_embedding, d_c)
+
         seq = copy.deepcopy(self.seq)
         seq = self._choice(seq)
         self.seq = None
         return seq
+
+    def _remedy(self, bos, sentence_embedding, c):
+        self.seq = []
+        bos = [[torch.tensor([bos]), torch.tensor(1).float(), sentence_embedding[sentence_embedding.size(0) - 1:, :, :], c]]
+        self._greedy_search(bos, sentence_embedding)
+        return None
 
     def _beam_search(self, bos, sentence_embedding, c):
         self.seq = []
@@ -88,17 +98,26 @@ class BeamSearch(nn.Module):
             pro = pro.detach().squeeze().to('cpu')
             for i in range(self.k):
                 new_pro = past_seq[beam][1] * pro[i]
-                if (index[i] == self.eos).item() == 1:
-                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
-                    self.seq.append(seq)
-                    return None
-                elif past_seq[beam][0].size(0) == self.max_length - 1:
-                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                if (new_pro == 0).item() == 1:
+                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), past_seq[beam][1]]
                     self.seq.append(seq)
                     return None
                 else:
-                    seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro, hidden[0], hidden[1]]
-                    seq_temp.append(seq)
+                    if (index[i] == self.eos).item() == 1:
+                        seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                        self.seq.append(seq)
+                        return None
+                    elif (index[i] == self.padding).item() == 1:
+                        seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                        self.seq.append(seq)
+                        return None
+                    elif past_seq[beam][0].size(0) == self.max_length - 1:
+                        seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro]
+                        self.seq.append(seq)
+                        return None
+                    else:
+                        seq = [torch.cat((past_seq[beam][0], torch.tensor([index[i]])), dim = 0), new_pro, hidden[0], hidden[1]]
+                        seq_temp.append(seq)
 
         seq_temp.sort(key = lambda pro: pro[1])
         seq_temp[:self.k]
@@ -133,14 +152,22 @@ class BeamSearch(nn.Module):
 
     def _choice(self, seq):
         weight = None
-        for i in range(len(seq)):
-            if weight is None:
-                weight = seq[i][1].detach().unsqueeze(0).numpy()
-            else:
-                weight = np.concatenate((weight, seq[i][1].detach().unsqueeze(0).numpy()), axis = 0)
+        if len(seq) == 1:
+            select_index = 0
+        else:
+            for i in range(len(seq)):
+                weight_temp =  weight = seq[i][1].detach().unsqueeze(0).numpy()
+                if weight_temp == 0:
+                    continue
+                
+                if weight is None:
+                    weight = weight_temp
+                else:
+                    weight = np.concatenate((weight, weight_temp), axis = 0)
+                    
+            weight = weight / np.sum(weight)
+            select_index = np.random.choice(np.arange(len(seq)), p = weight)
 
-        weight = weight / np.sum(weight)
-        select_index = np.random.choice(np.arange(len(seq)), p = weight)
         out = seq[select_index][0]
 
         return out

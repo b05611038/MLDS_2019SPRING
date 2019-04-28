@@ -60,15 +60,9 @@ def Predict(model, word2vec, test_set, env, k):
     return outcome
 
 def Clean(word):
-    if word == '<padding>':
-        return ''
-    elif word == '<unknown>':
-        return ''
-    elif word == '<bos>':
-        return ''
-    elif word == '<eos>':
-        return ''
-    elif word == '<padding>':
+    clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>',
+            '．', '〞', '◎', '∫', '♪', '』', '『']
+    if word in clean_token:
         return ''
     else:
         return word
