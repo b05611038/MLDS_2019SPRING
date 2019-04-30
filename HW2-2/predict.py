@@ -29,7 +29,7 @@ def Grab_input(path, word2vec):
     f.close()
 
     for i in range(len(text)):
-        sentence = text[i]
+        sentence = text[i].replace('\n', '').split(' ')
         sentence = [w for w in sentence if not re.match(r'[A-Z]+', w, re.I)] #may change
         sentence = [re.sub('[0-9]', '', w) for w in sentence] #may change
 
@@ -60,8 +60,9 @@ def Predict(model, word2vec, test_set, env, k):
     return outcome
 
 def Clean(word):
-    clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>',
-            '．', '〞', '◎', '∫', '♪', '』', '『']
+    clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>']
+    #clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>',
+    #        '．', '〞', '◎', '∫', '♪', '』', '『']
     if word in clean_token:
         return ''
     else:
