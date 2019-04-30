@@ -52,16 +52,24 @@ def Predict(model, word2vec, test_set, env, k):
         for word in range(seq.size(0)):
             sentence += Clean(word2vec.v2w(torch.tensor([seq[word]])))
 
+        if sentence == '':
+           sentence = torch.tensor([11150, 3764]).view(-1, 1, 1).long().to(env) 
+           seq = searcher(sentence).to('cpu')
+
+           sentence = ''
+           for word in range(seq.size(0)):
+               sentence += Clean(word2vec.v2w(torch.tensor([seq[word]])))
+
         sentence += '\n'
         outcome.append(sentence)
-        if index != 0 and (index + 1) % 5 == 0:
+        if index != 0 and (index + 1) % 500 == 0:
             print('Progress:', index + 1, '/', len(test_set))
 
     return outcome
 
 def Clean(word):
-    clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>']
-    #clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '<padding>',
+    clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>', '\n']
+    #clean_token = ['<padding>', '<unknown>', '<bos>', '<eos>',
     #        '．', '〞', '◎', '∫', '♪', '』', '『']
     if word in clean_token:
         return ''
