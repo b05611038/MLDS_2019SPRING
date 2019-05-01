@@ -70,7 +70,10 @@ def TrainModel(model, word2vec, saving_name, epochs, batch_size, device, save = 
         train_acc = train_right / train_total * 100
         train_loss = torch.tensor(train_loss).mean().item()
 
-        model.probability *= 1.05
+        if model.probability < 0.8:
+            model.probability *= 1.05
+        else:
+            model.probability = 0.8
 
         history.append(str(epoch + 1) + ',' + str(train_loss) + ',' + str(train_acc) + '\n')
         print('\nEpoch: ', epoch + 1, '| Train loss: %6f' % train_loss, '| Train Acc. %.4f' % train_acc)
