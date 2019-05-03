@@ -241,3 +241,4 @@ def WGAN(distribution, device):
 def WGAN_GP(distribution, device):
     return _gan('WGAN_GP', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
 
+
