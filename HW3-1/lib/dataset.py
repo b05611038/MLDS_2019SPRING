@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 import torchvision
-import torchvision.transforms as transforms
+import torchvision.transforms as tfs
 from torch.utils.data import Dataset
 from PIL import Image
 
@@ -12,7 +12,7 @@ from lib.utils import *
 class AnimeFaceDataset(Dataset):
     def __init__(self, transform = None, mode = 'sample', data_path = './data/faces'):
         if transform is None:
-            self.transform = transforms.Compose([transforms.ToTensor()])
+            self.transform = tfs.Compose([tfs.ToTensor()])
         else:
             self.transform = transform
 

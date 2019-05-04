@@ -6,6 +6,8 @@ import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
+import torchvision
+import torchvision.transforms as tfs
 
 from torch.optim import Adam, RMSprop
 from torch.utils.data import DataLoader
@@ -13,12 +15,10 @@ from torch.utils.data import DataLoader
 from lib.utils import *
 from lib.dataset import *
 from lib.model import *
-from lib.loss import *
 from lib.visualize import *
 
-
 class GANTrainer():
-    def __init__(self, model_type, model_name, distribution, dataset_mode, switch_ratio, device):
+    def __init__(self, model_type, model_name, distribution, dataset_mode, switch_ratio, device, img_path = './image'):
         if distribution not in ['uniform', 'normal']:
             raise ValueError('Please input correct sample distribution. [uniform or normal]')
 
@@ -28,6 +28,7 @@ class GANTrainer():
         self.model_type = model_type
         self.model_name = model_name
         self.switch_ratio = switch_ratio
+        self.img_path = img_path
         self.loss_layer = None
         if _check_continue_training(model_name):
             self.model = self._load_model(model_name)
@@ -38,15 +39,22 @@ class GANTrainer():
         self.dataset_mode = dataset_mode
         self.dataset = AnimeFaceDataset(mode = dataset_mode)
 
-    def train(self, name, epochs, batch_size, save = True):
+    def train(self, epochs, batch_size, save = True):
         if batch_size == 1:
             raise RuntimeError("For training batchnorm layer, batch can't set as 1.")
 
         self.dataloader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
         self.history = ['Epoch,Generator Loss,Discriminator Loss\n']
+        print('Model Structure:')
+        print(model)
+
         for epoch in epochs:
             self._epoch(batch_size, epoch)
-            pass
+
+        self._save_history()
+        torch.save(self.model, self.model_name + '.pkl')
+
+        print('All training process done.')
 
     def _epoch(self, batch_size, epoch_iter):
         dis_loss = []
@@ -100,12 +108,22 @@ class GANTrainer():
                         'Generator loss: %.6f |' % g_loss.detach(),
                         'Discriminator loss: %.6f' % d_loss.detach())
 
+        img_tensor = self.model(64).cpu()
+        GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
+                show = False, save = True)
+
         gen_loss = torch.tensor(gen_loss).sum() / torch.tensor(gen_total).sum()
         dis_loss = torch.tensor(gen_loss).sum() / torch.tensor(gen_total).sum()
         self.history.append([str(epoch_iter + 1) + ',' + str(gen_loss) + ',' + str(dis_loss) + '\n'])
+
         print('-' * 120 + '\n')
         print('Epoch %d |' % epoch_iter + 1, 'Generator loss: %.6f |' % gen_loss, 'Discriminator loss: %.6f' % dis_loss)
         print('\n' + '-' * 120)
+
+    def _save_history(self):
+        f = open(self.model_name + '.csv', 'w')
+        f.writelines(self.history)
+        f.close()
 
     def _calculate_loss(self, input_data, target, images, D, model_select, mode):
         #image and target are list object for [discriminator, generator]
