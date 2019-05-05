@@ -20,19 +20,16 @@ class AnimeFaceDataset(Dataset):
             raise ValueError('Please input correct dataset mode. [sample or batch]')
 
         self.mode = mode
-        self.training_mode = None
         self.data_path = data_path
         self.images = self._grab_image(data_path)
 
     def __getitem__(self, index):
         #real image
-        if self.training_mode == 'sample':
+        if self.mode == 'sample':
             select = random.randint(0, len(self.images) - 1)
             image = self.transform(self.images[select])
-        elif self.training_mode == 'batch':
+        elif self.mode == 'batch':
             image = self.transform(self.images[index])
-        else:
-            raise RuntimeError('Please initial AnimeFaceDataset.set_training_mode before iteration.')
 
         label = torch.tensor([1]).float()
 

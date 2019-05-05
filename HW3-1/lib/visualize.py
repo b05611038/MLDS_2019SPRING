@@ -34,7 +34,7 @@ def GeneratorImage(img_tensor, save_name, show = False, save = True):
     for row in range(8):
         for col in range(8):
             index = row * 8 + col
-            paste_img = tfs.ToPILImage()(img_tensor(index)).convert('RGB')
+            paste_img = tfs.ToPILImage()(img_tensor[index]).convert('RGB')
             img.paste(paste_img, (64 * row, 64 * col))
 
     if show:

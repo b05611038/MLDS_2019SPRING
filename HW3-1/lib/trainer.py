@@ -30,7 +30,7 @@ class GANTrainer():
         self.switch_ratio = switch_ratio
         self.img_path = img_path
         self.loss_layer = None
-        if _check_continue_training(model_name):
+        if self._check_continue_training(model_name):
             self.model = self._load_model(model_name)
         else:
             self.model = self._select_model(model_type)
@@ -45,10 +45,12 @@ class GANTrainer():
 
         self.dataloader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
         self.history = ['Epoch,Generator Loss,Discriminator Loss\n']
+        self.model.to(self.env)
+        self.model.device = self.env
         print('Model Structure:')
-        print(model)
+        print(self.model)
 
-        for epoch in epochs:
+        for epoch in range(epochs):
             self._epoch(batch_size, epoch)
 
         self._save_history()
@@ -68,17 +70,17 @@ class GANTrainer():
             self.model.generator = self.model.generator.eval()
             self.model.discriminator = self.model.discriminator.train()
 
-            image = image.float().to(self.device)
-            label = label.float().to(self.device)
+            image = image.float().to(self.env)
+            label = label.float().to(self.env)
 
-            fake_image = self.model(batch_size)
-            fake_label = torch.zeros_like(label).to(self.device)
+            fake_image = self.model(image.size(0))
+            fake_label = torch.zeros_like(label).to(self.env)
 
             real_dis = self.model(image, mode = 'discriminate')
             fake_dis = self.model(fake_image, mode = 'discriminate')
 
             d_loss = self._calculate_loss([real_dis, fake_dis], [label, fake_label], [image, fake_image],
-                    self.model.discriminator, self.model_select, mode = 'discriminate')
+                    self.model.discriminator, self.model_type, mode = 'discriminate')
 
             d_loss.backward()
             dis_loss.append(d_loss.detach() * image.size(0))
@@ -92,32 +94,33 @@ class GANTrainer():
                 self.model.generator = self.model.generator.train()
                 self.model.discriminator = self.model.discriminator.eval()
 
-                fake_image = self.model(batch_size)
+                fake_image = self.model(image.size(0))
                 fake_dis = self.model(fake_image, mode = 'discriminate')
 
                 g_loss = self._calculate_loss([None, fake_dis], [label, None], [None, None],
-                    self.model.discriminator, self.model_select, mode = 'generate')
+                    self.model.discriminator, self.model_type, mode = 'generate')
 
                 g_loss.backward()
-                gen_loss.append(g_loss.deatch() * image.size(0))
-                gen_tatal.append(image.size(0))
+                gen_loss.append(g_loss.detach() * image.size(0))
+                gen_total.append(image.size(0))
                 self.optim_G.step()
 
-            if iter % (self.switch_ratio * 10) == 0:
-                print('Epoch %d |' % epoch_iter + 1, 'Iter %d |' % iter + 1, 
-                        'Generator loss: %.6f |' % g_loss.detach(),
-                        'Discriminator loss: %.6f' % d_loss.detach())
+            if iter % 10 == 0:
+                print('Epoch', epoch_iter + 1, '| Iter', iter, 
+                        '| Generator loss: %.6f' % g_loss.detach(),
+                        '| Discriminator loss: %.6f' % d_loss.detach())
 
         img_tensor = self.model(64).cpu()
         GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
                 show = False, save = True)
 
         gen_loss = torch.tensor(gen_loss).sum() / torch.tensor(gen_total).sum()
-        dis_loss = torch.tensor(gen_loss).sum() / torch.tensor(gen_total).sum()
-        self.history.append([str(epoch_iter + 1) + ',' + str(gen_loss) + ',' + str(dis_loss) + '\n'])
+        dis_loss = torch.tensor(dis_loss).sum() / torch.tensor(dis_total).sum()
+        self.history.append(str(epoch_iter + 1) + ',' + str(gen_loss.detach().numpy()) +
+                ',' + str(dis_loss.detach().numpy()) + '\n')
 
         print('-' * 120 + '\n')
-        print('Epoch %d |' % epoch_iter + 1, 'Generator loss: %.6f |' % gen_loss, 'Discriminator loss: %.6f' % dis_loss)
+        print('Epoch', epoch_iter + 1, '| Generator loss: %.6f |' % gen_loss, 'Discriminator loss: %.6f' % dis_loss)
         print('\n' + '-' * 120)
 
     def _save_history(self):
@@ -125,32 +128,32 @@ class GANTrainer():
         f.writelines(self.history)
         f.close()
 
-    def _calculate_loss(self, input_data, target, images, D, model_select, mode):
+    def _calculate_loss(self, input_data, target, images, D, model_type, mode):
         #image and target are list object for [discriminator, generator]
         if mode == 'discriminate':
             #input_data: [discriminator out(real), discriminator out(fake)]
             #target: [real_label, fake_label]
             #images: [real_image, fake_image]
-            if model_select == 'GAN':
+            if model_type == 'GAN':
                 loss = self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1]) / 2
-            elif model_select == 'DCGAN':
+            elif model_type == 'DCGAN':
                 loss = self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1]) / 2
-            elif model_select == 'WGAN':
+            elif model_type == 'WGAN':
                 loss = -torch.mean(input_data[0]) + torch.mean(input_data[1])
-            elif model_select == 'WGAN_GP':
-                gradient_penalty = (D, images[0], images[1])
+            elif model_type == 'WGAN_GP':
+                gradient_penalty = self._gradient_penalty(D, images[0], images[1])
                 loss = -torch.mean(input_data[0]) + torch.mean(input_data[1]) + self.lambda_gp * gradient_penalty
 
             return loss
 
         elif mode == 'generate':
-            if model_select == 'GAN':
+            if model_type == 'GAN':
                 loss = self.loss_layer(input_data[1], target[0])
-            elif model_select == 'DCGAN':
+            elif model_type == 'DCGAN':
                 loss = self.loss_layer(input_data[1], target[0])
-            elif model_select == 'WGAN':
+            elif model_type == 'WGAN':
                 loss = -torch.mean(input_data[1])
-            elif model_select == 'WGAN_GP':
+            elif model_type == 'WGAN_GP':
                 loss = -torch.mean(input_data[1])
 
             return loss
@@ -160,11 +163,11 @@ class GANTrainer():
 
     def _gradient_penalty(self, D, real_image, fake_image):
         # Random weight term for interpolation between real and fake samples
-        alpha = torch.tensor(np.andom.random((real_image.size(0), 1, 1, 1))).float().to(self.device)
+        alpha = torch.tensor(np.random.random((real_image.size(0), 1, 1, 1))).float().to(self.env)
         # Get random interpolation between real and fake samples
         interpolates = (alpha * real_image + ((1 - alpha) * fake_image)).requires_grad_(True)
         d_interpolates = D(interpolates)
-        fake = torch.tensor(real_image.size(0), 1).fill_(1.0).float().to(self.device).requires_grad_(False)
+        fake = torch.ones(real_image.size(0), 1).float().requires_grad_(False).to(self.env)
         gradients = autograd.grad(
                 outputs = d_interpolates,
                 inputs = interpolates,
@@ -175,37 +178,38 @@ class GANTrainer():
                 )[0]
         gradients = gradients.view(gradients.size(0), -1)
         gradient_penalty = ((gradients.norm(2, dim = 1) - 1) ** 2).mean()
+
         return gradient_penalty
 
     def _select_optim(self, model_type):
-        if model_select == 'GAN':
+        if model_type == 'GAN':
             self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
             self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        elif model_select == 'DCGAN':
+        elif model_type == 'DCGAN':
             self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
             self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        elif model_select == 'WGAN':
+        elif model_type == 'WGAN':
             self.optim_G = RMSprop(self.model.generator.parameters(), lr = 0.00005)
             self.optim_D = RMSprop(self.model.discriminator.parameters(), lr = 0.00005)
-        elif model_select == 'WGAN_GP':
+        elif model_type == 'WGAN_GP':
             self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
             self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
 
-    def _select_model(self, model_select):
-        if model_select not in ['GAN', 'DCGAN', 'WGAN', 'WGAN_GP']:
+    def _select_model(self, model_type):
+        if model_type not in ['GAN', 'DCGAN', 'WGAN', 'WGAN_GP']:
             raise ValueError('Please select correct GAN model. [GAN, DCGAN, WGAN, WGAN_GP]')
 
-        if model_select == 'GAN':
-            model = GAN()
+        if model_type == 'GAN':
+            model = GAN(self.distribution, self.env)
             self.loss_layer = nn.BCELoss()
-        elif model_select == 'DCGAN':
-            model = DCGAN()
+        elif model_type == 'DCGAN':
+            model = DCGAN(self.distribution, self.env)
             self.loss_layer = nn.BCELoss()
-        elif model_select == 'WGAN':
-            model = WGAN()
+        elif model_type == 'WGAN':
+            model = WGAN(self.distribution, self.env)
             self.loss_layer = 'Check GANTrainer._calculate_loss().'
-        elif model_select == 'WGAN_GP':
-            model = WGAN_GP()
+        elif model_type == 'WGAN_GP':
+            model = WGAN_GP(self.distribution, self.env)
             self.lambda_gp = 10
             self.loss_layer = 'Check GANTrainer._calculate_loss().'
 
@@ -213,7 +217,7 @@ class GANTrainer():
 
     def _load_model(self, model_name):
         model = torch.load(model_name)
-        print('Load model', name, 'success.')
+        print('Load model', model_name, 'success.')
         return model
 
     def _check_continue_training(self, model_name):
@@ -235,7 +239,7 @@ class GANTrainer():
         else:
             return False
 
-    def _env_setting(device):
+    def _env_setting(self, device):
         if device < 0:
             env = torch.device('cpu')
             print('Envirnment setting done, using device: cpu')
