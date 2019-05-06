@@ -109,7 +109,7 @@ class GANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter, 
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 100 == 0:
+        if epoch_iter % 100 == 99:
             img_tensor = self.model(64).cpu()
             GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
                     show = False, save = True)
