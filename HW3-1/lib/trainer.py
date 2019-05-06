@@ -68,13 +68,15 @@ class GANTrainer():
             #discriminate
             self.optim_D.zero_grad()
 
-            self.model.generator.eval()
-            self.model.discriminator.train()
+            self.model.generator.zero_grad()
+            self.model.generator = self.model.generator.eval()
+            self.model.discriminator = self.model.discriminator.train()
 
             image = image.float().to(self.env)
             label = label.float().to(self.env)
 
             fake_image = self.model(image.size(0))
+            fake_image = fake_image.detach().to(self.env)
             fake_label = torch.zeros_like(label).to(self.env)
 
             real_dis = self.model(image, mode = 'discriminate')
@@ -92,8 +94,9 @@ class GANTrainer():
                 #generate
                 self.optim_G.zero_grad()
 
-                self.model.generator.train()
-                self.model.discriminator.eval()
+                self.model.discriminator.zero_grad()
+                self.model.generator = self.model.generator.train()
+                self.model.discriminator = self.model.discriminator.eval()
 
                 fake_image = self.model(image.size(0))
                 fake_dis = self.model(fake_image, mode = 'discriminate')
@@ -111,6 +114,7 @@ class GANTrainer():
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
         if epoch_iter % 100 == 99:
+            self.model = self.model.eval()
             img_tensor = self.model(64).cpu()
             GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
                     show = False, save = True)
