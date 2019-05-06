@@ -30,6 +30,7 @@ def GeneratorImage(img_tensor, save_name, show = False, save = True):
     if img_tensor.size(0) != 64:
         raise RuntimeError('The image function only support for 64 image.')
 
+    img_tensor = img_tensor * 0.5 + 0.5
     img = Image.new('RGB', (512, 512), (255, 255, 255))
     for row in range(8):
         for col in range(8):

@@ -179,19 +179,19 @@ class DCGenerator(nn.Module):
                 # size: [batch * latent_length * 1 * 1]
                 nn.ConvTranspose2d(latent_length, channel * 8, kernel_size = 4, stride = 1, padding = 0, bias = False),
                 nn.BatchNorm2d(channel * 8),
-                nn.ReLU(inplace = True),
+                nn.LeakyReLU(0.2, inplace = True),
                 # size: [batch * (channel * 8) * 4 * 4]
                 nn.ConvTranspose2d(channel * 8, channel * 4, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 4),
-                nn.ReLU(inplace = True),
+                nn.LeakyReLU(0.2, inplace = True),
                 # size: [batch * (channel * 4) * 8 * 8]
                 nn.ConvTranspose2d(channel * 4, channel * 2, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 2),
-                nn.ReLU(inplace = True),
+                nn.LeakyReLU(0.2, inplace = True),
                 # size: [batch * (channel * 2) * 16 * 16]
                 nn.ConvTranspose2d(channel * 2, channel, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel),
-                nn.ReLU(inplace = True),
+                nn.LeakyReLU(0.2, inplace = True),
                 # size: [batch * channel * 32 * 32]
                 nn.ConvTranspose2d(channel, out_channel, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.Tanh()

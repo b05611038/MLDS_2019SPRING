@@ -12,7 +12,7 @@ from lib.utils import *
 class AnimeFaceDataset(Dataset):
     def __init__(self, transform = None, mode = 'sample', data_path = './data/faces'):
         if transform is None:
-            self.transform = tfs.Compose([tfs.ToTensor()])
+            self.transform = tfs.Compose([tfs.ToTensor(), tfs.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         else:
             self.transform = transform
 
