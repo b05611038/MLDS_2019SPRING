@@ -31,6 +31,7 @@ class GANTrainer():
         self.img_path = img_path
         self.loss_layer = None
         if self._check_continue_training(model_name):
+            self.model = self._select_model(model_type)
             self.model = self._load_model(model_name)
         else:
             self.model = self._select_model(model_type)
@@ -67,8 +68,8 @@ class GANTrainer():
             #discriminate
             self.optim_D.zero_grad()
 
-            self.model.generator = self.model.generator.eval()
-            self.model.discriminator = self.model.discriminator.train()
+            self.model.generator.eval()
+            self.model.discriminator.train()
 
             image = image.float().to(self.env)
             label = label.float().to(self.env)
@@ -91,8 +92,8 @@ class GANTrainer():
                 #generate
                 self.optim_G.zero_grad()
 
-                self.model.generator = self.model.generator.train()
-                self.model.discriminator = self.model.discriminator.eval()
+                self.model.generator.train()
+                self.model.discriminator.eval()
 
                 fake_image = self.model(image.size(0))
                 fake_dis = self.model(fake_image, mode = 'discriminate')
@@ -216,7 +217,7 @@ class GANTrainer():
         return model
 
     def _load_model(self, model_name):
-        model = torch.load(model_name)
+        model = torch.load(model_name + '.pkl')
         print('Load model', model_name, 'success.')
         return model
 
@@ -234,7 +235,7 @@ class GANTrainer():
                     real_path = real_path + path[i] + '/'
             files = os.listdir(real_path)
 
-        if model_name in files:
+        if (model_name + '.pkl') in files:
             return True
         else:
             return False
