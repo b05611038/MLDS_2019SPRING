@@ -13,7 +13,7 @@ def init_parser(main):
     parser.add_argument('--dataset_mode', type = str, default = 'sample', help = 'how dataset grab data. [sample or batch]')
     parser.add_argument('--switch_ratio', type = int, default = 1, help = 'the switch ratio of training generator and discriminator')
     parser.add_argument('--epochs', type = int, default = 2000, help = 'number of epochs of training.')
-    parser.add_argument('--batch_size', type = int, default = 256, help = 'size of the batches.')
+    parser.add_argument('--batch_size', type = int, default = 128, help = 'size of the batches.')
     parser.add_argument('--latent_dim', type = int, default = 100, help = 'dimensionality of the latent space.')
     opt = parser.parse_args()
     print(opt)

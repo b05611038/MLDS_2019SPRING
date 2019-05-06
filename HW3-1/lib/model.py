@@ -57,12 +57,15 @@ class originalGAN(nn.Module):
     def _latent_random(self, numbers, distribution):
         if distribution == 'uniform':
             latent = np.random.uniform(-1, 1, (numbers, self.latent_length))
+            return torch.tensor(latent).float().to(self.device)
         elif distribution == 'normal':
             latent = np.random.normal(0, 1, (numbers, self.latent_length))
+            return torch.tensor(latent).float().to(self.device)
+        elif distribution == 'torch':
+            latent = torch.randn(numbers, self.latent_length)
+            return latent.float().to(self.device)
         else:
             raise RuntimeError("Can't generate random latent vector.")
-
-        return torch.tensor(latent).float().to(self.device)
 
 class Discriminator(nn.Module):
     def __init__(self, image_size, sigmoid_use):
@@ -153,12 +156,16 @@ class dcGAN(nn.Module):
     def _latent_random(self, numbers, distribution):
         if distribution == 'uniform':
             latent = np.random.uniform(-1, 1, (numbers, self.latent_length, 1, 1))
+            return torch.tensor(latent).float().to(self.device)
         elif distribution == 'normal':
             latent = np.random.normal(0, 1, (numbers, self.latent_length, 1, 1))
+            return torch.tensor(latent).float().to(self.device)
+        elif distribution == 'torch':
+            latent = torch.randn(numbers, self.latent_length, 1, 1)
+            return latent.float().to(self.device)
         else:
             raise RuntimeError("Can't generate random latent vector.")
 
-        return torch.tensor(latent).float().to(self.device)
 
 class DCGenerator(nn.Module):
     def __init__(self, channel, out_channel, latent_length):
