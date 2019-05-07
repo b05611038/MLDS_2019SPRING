@@ -2,7 +2,7 @@ import os
 import cv2
 import argparse
 
-
+'''
 def save_imgs(generator):
     import matplotlib.pyplot as plt
     r, c = 5, 5
@@ -18,7 +18,7 @@ def save_imgs(generator):
             cnt += 1
     fig.savefig("output.png")
     plt.close()
-
+'''
 
 def detect(filename, cascade_file = "./lbpcascade_animeface.xml"):
     if not os.path.isfile(cascade_file):

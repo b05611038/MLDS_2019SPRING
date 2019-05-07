@@ -43,4 +43,26 @@ def GeneratorImage(img_tensor, save_name, show = False, save = True):
     if save:
         img.save(save_name, 'PNG')
 
+def Save_imgs(model, name):
+    import matplotlib.pyplot as plt
+    r, c = 5, 5
+
+    model = model.eval()
+    img_tensor = model(r * c)
+    img_tensor = img_tensor * 0.5 + 0.5
+    gen_imgs = (img_tensor.to('cpu').detach().numpy() * 255).astype('uint8')
+    gen_imgs = np.transpose(gen_imgs, (0, 2, 3, 1))
+    # gen_imgs should be shape (25, 64, 64, 3)
+    fig, axs = plt.subplots(r, c)
+    cnt = 0
+    for i in range(r):
+        for j in range(c):
+            axs[i,j].imshow(gen_imgs[cnt, :,:,:])
+            axs[i,j].axis('off')
+            cnt += 1
+
+    fig.savefig(name + '.png')
+    print('Image:', name + '.png saving done.')
+    plt.close()
+
 

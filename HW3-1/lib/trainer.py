@@ -90,6 +90,10 @@ class GANTrainer():
             dis_total.append(image.size(0))
             self.optim_D.step()
 
+            if self.model_type == 'WGAN':
+                for p in self.model.discriminator.parameters():
+                    p.data.clamp_(-0.01, 0.01)
+
             if iter % self.switch_ratio == 0:
                 #generate
                 self.optim_G.zero_grad()
