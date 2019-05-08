@@ -90,7 +90,7 @@ class GANTrainer():
             dis_total.append(image.size(0))
             self.optim_D.step()
 
-            if self.model_type == 'WGAN':
+            if self.model_type == 'WGAN' or self.model_type == 'DCGAN':
                 for p in self.model.discriminator.parameters():
                     p.data.clamp_(-0.01, 0.01)
 
@@ -117,7 +117,7 @@ class GANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter, 
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 100 == 99:
+        if epoch_iter % 5 == 4:
             self.model = self.model.eval()
             img_tensor = self.model(64).cpu()
             GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
