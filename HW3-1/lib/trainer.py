@@ -9,7 +9,7 @@ import torch.autograd as autograd
 import torchvision
 import torchvision.transforms as tfs
 
-from torch.optim import Adam, RMSprop
+from torch.optim import SGD, Adam, RMSprop
 from torch.utils.data import DataLoader
 
 from lib.utils import *
@@ -64,13 +64,10 @@ class GANTrainer():
         dis_total = []
         gen_loss = []
         gen_total = []
+        self.model = self.model.train()
         for iter, (image, label) in enumerate(self.dataloader):
             #discriminate
             self.optim_D.zero_grad()
-
-            self.model.generator.zero_grad()
-            self.model.generator = self.model.generator.eval()
-            self.model.discriminator = self.model.discriminator.train()
 
             image = image.float().to(self.env)
             label = label.float().to(self.env)
@@ -86,11 +83,13 @@ class GANTrainer():
                     self.model.discriminator, self.model_type, mode = 'discriminate')
 
             d_loss.backward()
+            self.model.generator.zero_grad()
             dis_loss.append(d_loss.detach() * image.size(0))
             dis_total.append(image.size(0))
+
             self.optim_D.step()
 
-            if self.model_type == 'WGAN' or self.model_type == 'DCGAN':
+            if self.model_type == 'WGAN':
                 for p in self.model.discriminator.parameters():
                     p.data.clamp_(-0.01, 0.01)
 
@@ -98,17 +97,15 @@ class GANTrainer():
                 #generate
                 self.optim_G.zero_grad()
 
-                self.model.discriminator.zero_grad()
-                self.model.generator = self.model.generator.train()
-                self.model.discriminator = self.model.discriminator.eval()
+                new_label = torch.ones_like(label).float().to(self.env)
+                fake_img = self.model(image.size(0))
+                fake_dis = self.model(fake_img, mode = 'discriminate')
 
-                fake_image = self.model(image.size(0))
-                fake_dis = self.model(fake_image, mode = 'discriminate')
-
-                g_loss = self._calculate_loss([None, fake_dis], [label, None], [None, None],
+                g_loss = self._calculate_loss([None, fake_dis], [new_label, None], [None, None],
                     self.model.discriminator, self.model_type, mode = 'generate')
 
                 g_loss.backward()
+                self.model.discriminator.zero_grad()
                 gen_loss.append(g_loss.detach() * image.size(0))
                 gen_total.append(image.size(0))
                 self.optim_G.step()
@@ -144,9 +141,9 @@ class GANTrainer():
             #target: [real_label, fake_label]
             #images: [real_image, fake_image]
             if model_type == 'GAN':
-                loss = self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1]) / 2
+                loss = (self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1])) / 2
             elif model_type == 'DCGAN':
-                loss = self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1]) / 2
+                loss = (self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1])) / 2
             elif model_type == 'WGAN':
                 loss = -torch.mean(input_data[0]) + torch.mean(input_data[1])
             elif model_type == 'WGAN_GP':
@@ -197,6 +194,7 @@ class GANTrainer():
         elif model_type == 'DCGAN':
             self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
             self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
+            #self.optim_D = SGD(self.model.discriminator.parameters(), lr = 0.00005)
         elif model_type == 'WGAN':
             self.optim_G = RMSprop(self.model.generator.parameters(), lr = 0.00005)
             self.optim_D = RMSprop(self.model.discriminator.parameters(), lr = 0.00005)

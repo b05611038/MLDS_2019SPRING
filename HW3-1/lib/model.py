@@ -20,7 +20,6 @@ def weights_init(model):
         nn.init.normal_(model.weight.data, 1.0, 0.02)
         nn.init.constant_(model.bias.data, 0.0)
 
-
 class originalGAN(nn.Module):
     def __init__(self, distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = True, init_weight = True):
         super(originalGAN, self).__init__()
@@ -179,19 +178,19 @@ class DCGenerator(nn.Module):
                 # size: [batch * latent_length * 1 * 1]
                 nn.ConvTranspose2d(latent_length, channel * 8, kernel_size = 4, stride = 1, padding = 0, bias = False),
                 nn.BatchNorm2d(channel * 8),
-                nn.LeakyReLU(0.2, inplace = True),
+                nn.ReLU(inplace = True),
                 # size: [batch * (channel * 8) * 4 * 4]
                 nn.ConvTranspose2d(channel * 8, channel * 4, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 4),
-                nn.LeakyReLU(0.2, inplace = True),
+                nn.ReLU(inplace = True),
                 # size: [batch * (channel * 4) * 8 * 8]
                 nn.ConvTranspose2d(channel * 4, channel * 2, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 2),
-                nn.LeakyReLU(0.2, inplace = True),
+                nn.ReLU(inplace = True),
                 # size: [batch * (channel * 2) * 16 * 16]
                 nn.ConvTranspose2d(channel * 2, channel, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.BatchNorm2d(channel),
-                nn.LeakyReLU(0.2, inplace = True),
+                nn.ReLU(inplace = True),
                 # size: [batch * channel * 32 * 32]
                 nn.ConvTranspose2d(channel, out_channel, kernel_size = 4, stride = 2, padding = 1, bias = False),
                 nn.Tanh()
@@ -225,7 +224,7 @@ class DCDiscriminator(nn.Module):
                 )
 
     def forward(self, image):
-        return self.main(image).squeeze()
+        return self.main(image).view(image.size(0), -1)
 
 def _gan(arch, distribution, device, **kwargs):
     model_list = ['GAN', 'WGAN', 'WGAN_GP']
@@ -240,7 +239,7 @@ def GAN(distribution, device):
     return _gan('GAN', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = True, init_weight = True)
 
 def DCGAN(distribution, device):
-    return dcGAN(distribution, device, latent_length = 100, in_channel = 3, channel = 128, init_weight = True)
+    return dcGAN(distribution, device, latent_length = 100, in_channel = 3, channel = 64, init_weight = True)
 
 def WGAN(distribution, device):
     return _gan('WGAN', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
