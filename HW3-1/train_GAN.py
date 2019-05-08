@@ -9,7 +9,7 @@ def init_parser(main):
     parser.add_argument('model_type', type = str, help = 'Four kinds of GAN can choose. [GAN, DCGAN, WGAN, WGAN_GP]')
     parser.add_argument('model_name', type = str, help = 'model saving name.')
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
-    parser.add_argument('--distribution', type = str, help = 'distribution of generator use [normal or uniform].')
+    parser.add_argument('--distribution', type = str, default = 'torch', help = 'distribution of generator use [normal or uniform].')
     parser.add_argument('--dataset_mode', type = str, default = 'sample', help = 'how dataset grab data. [sample or batch]')
     parser.add_argument('--switch_ratio', type = int, default = 1, help = 'the switch ratio of training generator and discriminator')
     parser.add_argument('--epochs', type = int, default = 200, help = 'number of epochs of training.')
