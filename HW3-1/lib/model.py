@@ -60,6 +60,10 @@ class originalGAN(nn.Module):
         elif distribution == 'normal':
             latent = np.random.normal(0, 1, (numbers, self.latent_length))
             return torch.tensor(latent).float().to(self.device)
+        elif distribution == 'oth_normal':
+            latent = np.random.normal(0, 1, (numbers, self.latent_length))
+            latent = orthogonal(latent)
+            return torch.tensor(latent).float().to(self.device)
         elif distribution == 'torch':
             latent = torch.randn(numbers, self.latent_length)
             return latent.float().to(self.device)
@@ -158,6 +162,10 @@ class dcGAN(nn.Module):
             return torch.tensor(latent).float().to(self.device)
         elif distribution == 'normal':
             latent = np.random.normal(0, 1, (numbers, self.latent_length, 1, 1))
+            return torch.tensor(latent).float().to(self.device)
+        elif distribution == 'oth_normal':
+            latent = np.random.normal(0, 1, (numbers, self.latent_length, 1, 1))
+            latent = orthogonal(latent)
             return torch.tensor(latent).float().to(self.device)
         elif distribution == 'torch':
             latent = torch.randn(numbers, self.latent_length, 1, 1)

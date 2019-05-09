@@ -19,7 +19,7 @@ from lib.visualize import *
 
 class GANTrainer():
     def __init__(self, model_type, model_name, distribution, dataset_mode, switch_ratio, device, img_path = './image'):
-        if distribution not in ['uniform', 'normal', 'torch']:
+        if distribution not in ['uniform', 'normal', 'oth_normal', 'torch']:
             raise ValueError('Please input correct sample distribution. [uniform, normal, torch]')
 
         self.distribution = distribution
