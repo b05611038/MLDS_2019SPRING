@@ -17,11 +17,12 @@ def orthogonal(noise):
     noise = noise.reshape(shape[0], -1)
     mean = np.mean(noise, axis = 0)
     var = noise - mean
+    length = np.linalg.norm(noise, axis = 0)
 
     alt_cov = np.dot(var, np.transpose(var))
     eig_val, eig_vec = np.linalg.eig(alt_cov)
     eig_vec = np.dot(np.transpose(var), eig_vec).astype(np.float64)
-    eig_vec = eig_vec / np.linalg.norm(eig_vec, axis = 0)
+    eig_vec = np.multiply(length, (eig_vec / np.linalg.norm(eig_vec, axis = 0)))
 
     return eig_vec.reshape(shape)
 
