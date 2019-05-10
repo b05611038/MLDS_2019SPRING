@@ -18,11 +18,12 @@ from lib.model import *
 from lib.visualize import *
 
 class GANTrainer():
-    def __init__(self, model_type, model_name, distribution, dataset_mode, switch_ratio, device, img_path = './image'):
+    def __init__(self, model_type, model_name, distribution, latent_length, dataset_mode, switch_ratio, device, img_path = './image'):
         if distribution not in ['uniform', 'normal', 'oth_normal', 'torch']:
             raise ValueError('Please input correct sample distribution. [uniform, normal, torch]')
 
         self.distribution = distribution
+        self.latent_length = latent_length
         self.env = self._env_setting(device)
 
         self.model_type = model_type
@@ -114,7 +115,7 @@ class GANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter, 
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 5 == 4:
+        if epoch_iter % 100 == 99:
             self.model = self.model.eval()
             img_tensor = self.model(64).cpu()
             GeneratorImage(img_tensor, self.img_path + '/' + self.model_name + '_E' + str(epoch_iter + 1) + '.png',
@@ -207,16 +208,16 @@ class GANTrainer():
             raise ValueError('Please select correct GAN model. [GAN, DCGAN, WGAN, WGAN_GP]')
 
         if model_type == 'GAN':
-            model = GAN(self.distribution, self.env)
+            model = GAN(self.distribution, self.env, latent_length = self.latent_length)
             self.loss_layer = nn.BCELoss()
         elif model_type == 'DCGAN':
-            model = DCGAN(self.distribution, self.env)
+            model = DCGAN(self.distribution, self.env, latent_length = self.latent_length)
             self.loss_layer = nn.BCELoss()
         elif model_type == 'WGAN':
-            model = WGAN(self.distribution, self.env)
+            model = WGAN(self.distribution, self.env, latent_length = self.latent_length)
             self.loss_layer = 'Check GANTrainer._calculate_loss().'
         elif model_type == 'WGAN_GP':
-            model = WGAN_GP(self.distribution, self.env)
+            model = WGAN_GP(self.distribution, self.env, latent_length = self.latent_length)
             self.lambda_gp = 10
             self.loss_layer = 'Check GANTrainer._calculate_loss().'
 

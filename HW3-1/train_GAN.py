@@ -24,7 +24,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     opt = init_parser(__name__)
-    trainer = GANTrainer(opt.model_type, opt.model_name, opt.distribution,
+    trainer = GANTrainer(opt.model_type, opt.model_name, opt.distribution, opt.latent_dim, 
             opt.dataset_mode, opt.switch_ratio, opt.device)
     trainer.train(opt.epochs, opt.batch_size)
     print('All process done, cause %s seconds.' % (time.time() - start_time))

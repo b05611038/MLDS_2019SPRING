@@ -243,16 +243,16 @@ def _gan(arch, distribution, device, **kwargs):
 
     return model
 
-def GAN(distribution, device):
-    return _gan('GAN', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = True, init_weight = True)
+def GAN(distribution, device, latent_length = 100):
+    return _gan('GAN', distribution, device, latent_length = latent_length, image_size = (3, 64, 64), sigmoid_use = True, init_weight = True)
 
 def DCGAN(distribution, device):
-    return dcGAN(distribution, device, latent_length = 100, in_channel = 3, channel = 64, init_weight = True)
+    return dcGAN(distribution, device, latent_length = latent_length, in_channel = 3, channel = 64, init_weight = True)
 
 def WGAN(distribution, device):
-    return _gan('WGAN', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
+    return _gan('WGAN', distribution, device, latent_length = latent_length, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
 
 def WGAN_GP(distribution, device):
-    return _gan('WGAN_GP', distribution, device, latent_length = 100, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
+    return _gan('WGAN_GP', distribution, device, latent_length = latent_length, image_size = (3, 64, 64), sigmoid_use = False, init_weight = True)
 
 
