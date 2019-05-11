@@ -17,7 +17,7 @@ def orthogonal(noise):
     noise = noise.reshape(shape[0], -1)
     mean = np.mean(noise, axis = 0)
     var = noise - mean
-    length = np.linalg.norm(noise, axis = 0)
+    length = np.linalg.norm(noise, axis = 1)
 
     alt_cov = np.dot(var, np.transpose(var))
     eig_val, eig_vec = np.linalg.eig(alt_cov)
