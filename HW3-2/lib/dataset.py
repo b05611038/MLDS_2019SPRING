@@ -26,6 +26,7 @@ class Text2ImageDataset(Dataset):
         self.data_path = data_path
         self.images = self._grab_images(data_path)
         eyes, hairs = self._tags_info()
+        self.text_length = len(eyes) * len(hairs)
         self.tags = self._grab_tags(data_path, eyes, hairs)
 
     def __getitem__(self, index):
@@ -33,10 +34,14 @@ class Text2ImageDataset(Dataset):
         if self.mode == 'sample':
             select = random.randint(0, len(self.images) - 1)
             image = self.transform(self.images[select])
-            label = self.tags[select]
+            label_index = self.tags[select]
+            label = torch.zeros(self.text_length)
+            label[label_index] = 1
         elif self.mode == 'batch':
             image = self.transform(self.images[index])
-            label = self.tags[index]
+            label_index = self.tags[index]
+            label = torch.zeros(self.text_length)
+            label[label_index] = 1
 
         return image, label
 
@@ -50,7 +55,7 @@ class Text2ImageDataset(Dataset):
 
         tags = {}
         for line in text:
-            context = line.replace('\n', '')split(',')
+            context = line.replace('\n', '').split(',')
             index = int(context[0])
             feature = context[1].split(' ')
             hair = feature[0]

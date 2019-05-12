@@ -18,20 +18,21 @@ def weights_init(model):
         nn.init.constant_(model.bias.data, 0.0)
 
 class Text2ImageGAN(nn.Module):
-    def __init__(self, text_length, device, distribution = 'torch', noise_length = 100, in_channel = 3, channel = 64, init_weight = True):
-        super(T2IDiscriminator, self).__init__()
+    def __init__(self, text_length, device, distribution = 'torch', noise_length = 100, out_channel = 3, channel = 64, sigmoid_used = True, init_weight = True):
+        super(Text2ImageGAN, self).__init__()
 
         self.text_length = text_length
         self.device = device
 
         self.distribution = distribution
         self.noise_length = noise_length
-        self.in_channel = in_channel
+        self.out_channel = out_channel
         self.channel = channel
+        self.sigmoid_used = sigmoid_used
         self.init_weight = init_weight
 
         self.generator = T2IGenerator(channel, out_channel, noise_length, text_length)
-        self.discriminator = T2IDiscriminator(in_channel, channel, text_length)
+        self.discriminator = T2IDiscriminator(out_channel, channel, text_length, sigmoid_used)
 
         if init_weight:
             self.generator.apply(weights_init)
@@ -46,7 +47,7 @@ class Text2ImageGAN(nn.Module):
             raise ValueError('Please check the model mode, [generate or discrimiate].')
 
         if mode == 'generate':
-            latent_vector = self._latent_random(feed, self.distribution)
+            latent_vector = self._latent_random(feed[0].size(0), self.distribution)
             return self.generator(feed[0], latent_vector)
         elif mode == 'discriminate':
             return self.discriminator(feed[1], feed[0])
@@ -55,13 +56,13 @@ class Text2ImageGAN(nn.Module):
 
     def _latent_random(self, numbers, distribution):
         if distribution == 'uniform':
-            latent = np.random.uniform(-1, 1, (numbers, self.latent_length, 1, 1))
+            latent = np.random.uniform(-1, 1, (numbers, self.noise_length))
             return torch.tensor(latent).float().to(self.device)
         elif distribution == 'normal':
-            latent = np.random.normal(0, 1, (numbers, self.latent_length, 1, 1))
+            latent = np.random.normal(0, 1, (numbers, self.noise_length))
             return torch.tensor(latent).float().to(self.device)
         elif distribution == 'torch':
-            latent = torch.randn(numbers, self.latent_length, 1, 1)
+            latent = torch.randn(numbers, self.noise_length)
             return latent.float().to(self.device)
         else:
             raise RuntimeError("Can't generate random latent vector.")
@@ -81,19 +82,19 @@ class T2IGenerator(nn.Module):
 
         self.main = nn.Sequential(
                 # size: [batch * (channel * 8) * 4 * 4]
-                nn.ConvTranspose2d(channel * 8, channel * 4, kernel_size = 5, stride = 2, bias = False),
+                nn.ConvTranspose2d(channel * 8, channel * 4, kernel_size = 5, stride = 2, padding = 2, output_padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 4, momentum = 0.9),
                 nn.ReLU(inplace = True),
                 # size [batch * (channel * 4) * 8 * 8]
-                nn.ConvTranspose2d(channel * 4, channel * 2, kernel_size = 5, stride = 2, bias = False),
+                nn.ConvTranspose2d(channel * 4, channel * 2, kernel_size = 5, stride = 2, padding = 2, output_padding = 1, bias = False),
                 nn.BatchNorm2d(channel * 2, momentum = 0.9),
                 nn.ReLU(inplace = True),
                 # size [batch * (channel * 4) * 16 * 16]
-                nn.ConvTranspose2d(channel * 2, channel, kernel_size = 5, stride = 2, bias = False),
+                nn.ConvTranspose2d(channel * 2, channel, kernel_size = 5, stride = 2, padding = 2, output_padding = 1, bias = False),
                 nn.BatchNorm2d(channel, momentum = 0.9),
                 nn.ReLU(inplace = True),
                 # size [batch * (channel * 4) * 32 * 32]
-                nn.ConvTranspose2d(channel, out_channel, kernel_size = 5, stride = 2, bias = False),
+                nn.ConvTranspose2d(channel, out_channel, kernel_size = 5, stride = 2, padding = 2, output_padding = 1, bias = False),
                 nn.Tanh()
                 # size: [batch * out_channel * 64 * 64]
                 )
@@ -108,28 +109,33 @@ class T2IGenerator(nn.Module):
 
 
 class T2IDiscriminator(nn.Module):
-    def __init__(self, in_channel, channel, text_length):
+    def __init__(self, in_channel, channel, text_length, sigmoid_used):
         super( T2IDiscriminator, self).__init__()
 
         self.in_channel = in_channel
         self.channel = channel
         self.text_length = text_length
+        self.sigmoid_used = sigmoid_used
 
         self.embedding = nn.Linear(text_length, channel * 4)
         self.main = nn.Sequential(
-                nn.Conv2d(in_channel, channel, kernel_size = 5, stride = 2, bias = False)
+                nn.Conv2d(in_channel, channel, kernel_size = 5, stride = 2, padding = 2, bias = False),
                 nn.LeakyReLU(0.2, inplace = True),
-                nn.Conv2d(channel, channel * 2, kernel_size = 5, stride = 2, bias = False)
+                nn.Conv2d(channel, channel * 2, kernel_size = 5, stride = 2, padding = 2, bias = False),
                 nn.BatchNorm2d(channel * 2),
                 nn.LeakyReLU(0.2, inplace = True),
-                nn.Conv2d(channel * 2, channel * 4, kernel_size = 5, stride = 2, bias = False),
+                nn.Conv2d(channel * 2, channel * 4, kernel_size = 5, stride = 2, padding = 2, bias = False),
                 nn.BatchNorm2d(channel * 4),
+                nn.LeakyReLU(0.2, inplace = True),
+                nn.Conv2d(channel * 4, channel * 8, kernel_size = 5, stride = 2, padding = 2, bias = False),
+                nn.BatchNorm2d(channel * 8),
                 nn.LeakyReLU(0.2, inplace = True),
                 )
 
-        self.conv = nn.Conv2d((channel * 4 + channel * 4), channel * 8, bias = False)
+        self.conv = nn.Conv2d((channel * 8 + channel * 4), channel * 8, 
+                kernel_size = 1, stride = 1, padding = 0, bias = False)
         self.lrelu = nn.LeakyReLU(0.2, inplace = True)
-        self.dense = nn.Linear(channel * 8, 1)
+        self.dense = nn.Linear(channel * 8 * 4 * 4, 1)
 
     def forward(self, image, text):
         text_embedding = self.embedding(text)
@@ -138,9 +144,12 @@ class T2IDiscriminator(nn.Module):
         x = self.main(image)
         x = torch.cat((x, text_embedding), dim = 1)
         x = self.conv(x)
-        x = self.lrelu(x)
+        x = self.lrelu(x).view(x.size(0), -1)
         x = self.dense(x)
 
-        return torch.sigmoid(x)
+        if self.sigmoid_used:
+            return torch.sigmoid(x)
+        else:
+            return x
 
 
