@@ -17,6 +17,9 @@ from lib.dataset import *
 from lib.model import *
 from lib.visualize import *
 
+#tags are from testing dataset
+testing_tags = [['blue', 'blue'], ['blue', 'green'], ['blue', 'red'], ['green', 'blue'], ['green', 'red']] 
+
 class Text2ImageGANTrainer():
     def __init__(self, model_type, model_name, distribution, noise_length, dataset_mode, switch_ratio, device, data_path = './data'):
         if distribution not in ['uniform', 'normal', 'torch']:
@@ -32,6 +35,7 @@ class Text2ImageGANTrainer():
         self.data_path = data_path
         self.loss_layer = None
         self.dataset_mode = dataset_mode
+        self.GIF = GIFMaker(testing_tags, 10, self.distribution, self.noise_length, self.env)
         self.dataset = Text2ImageDataset(mode = dataset_mode)
         if self._check_continue_training(model_name):
             self.model = self._select_model(model_type)
@@ -118,6 +122,7 @@ class Text2ImageGANTrainer():
                         '| Discriminator loss: %.6f' % d_loss.detach())
         if epoch_iter % 5 == 4:
             self.model = self.model.eval()
+            self.GIF.save_img(self.model.generator, self.model_name + '_E' + str(epoch_iter + 1) + '.png')
 
         gen_loss = torch.tensor(gen_loss).sum() / torch.tensor(gen_total).sum()
         dis_loss = torch.tensor(dis_loss).sum() / torch.tensor(dis_total).sum()
