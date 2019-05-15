@@ -25,6 +25,28 @@ def TrainHistoryPlot(his, his_label, save_name, title, axis_name, save = True):
     else:
         plt.show()
 
+def Save_imgs(model, name, tags):
+    import matplotlib.pyplot as plt
+    r, c = 5, 5
+
+    model = model.eval()
+    img_tensor = model([tags.to(model.device), None])
+    img_tensor = img_tensor * 0.5 + 0.5
+    gen_imgs = (img_tensor.to('cpu').detach().numpy() * 255).astype('uint8')
+    gen_imgs = np.transpose(gen_imgs, (0, 2, 3, 1))
+    # gen_imgs should be shape (25, 64, 64, 3)
+    fig, axs = plt.subplots(r, c)
+    cnt = 0
+    for i in range(r):
+        for j in range(c):
+            axs[i,j].imshow(gen_imgs[cnt, :,:,:])
+            axs[i,j].axis('off')
+            cnt += 1
+
+    fig.savefig(name + '.png')
+    print('Image:', name + '.png saving done.')
+    plt.close()
+
 class GIFMaker():
     def __init__(self, tags, each_numbers, distribution, noise_length, device, save_path = './image'):
         #tags is double layer list for output feature: [['aqua', 'red'], [blue', 'green']]
