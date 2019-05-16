@@ -85,7 +85,7 @@ class Text2ImageGANTrainer():
             real_dis = self.model([tags, images], mode = 'discriminate')
             fake_dis = self.model([tags, fake_image], mode = 'discriminate')
 
-            d_loss = self._calculate_loss([real_dis, fake_dis], [label, fake_label], [image, fake_image],
+            d_loss = self._calculate_loss([real_dis, fake_dis], [label, fake_label], [image, fake_image], tags,
                     self.model.discriminator, self.model_type, mode = 'discriminate')
 
             d_loss.backward()
@@ -107,7 +107,7 @@ class Text2ImageGANTrainer():
                 fake_img = self.model([tags, None])
                 fake_dis = self.model([tags, fake_img], mode = 'discriminate')
 
-                g_loss = self._calculate_loss([None, fake_dis], [new_label, None], [None, None],
+                g_loss = self._calculate_loss([None, fake_dis], [new_label, None], [None, None], None,
                     self.model.discriminator, self.model_type, mode = 'generate')
 
                 g_loss.backward()
@@ -120,7 +120,7 @@ class Text2ImageGANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter,
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 5 == 4:
+        if epoch_iter % 50 == 49:
             self.model = self.model.eval()
             self.GIF.save_img(self.model.generator, self.model_name + '_E' + str(epoch_iter + 1) + '.png')
 
@@ -138,19 +138,20 @@ class Text2ImageGANTrainer():
         f.writelines(self.history)
         f.close()
 
-    def _calculate_loss(self, input_data, target, images, D, model_type, mode):
+    def _calculate_loss(self, input_data, target, images, tags, D, model_type, mode):
         #image and target are list object for [discriminator, generator]
         if mode == 'discriminate':
             #input_data: [discriminator out(real), discriminator out(fake)]
             #target: [real_label, fake_label]
             #images: [real_image, fake_image]
+            #tags: real tags of image
             if model_type == 'GAN':
                 loss = (self.loss_layer(input_data[0], target[0]) + self.loss_layer(input_data[1], target[1])) / 2
             elif model_type == 'WGAN':
                 loss = -torch.mean(input_data[0]) + torch.mean(input_data[1])
-            #elif model_type == 'WGAN_GP':
-            #    gradient_penalty = self._gradient_penalty(D, images[0], images[1])
-            #    loss = -torch.mean(input_data[0]) + torch.mean(input_data[1]) + self.lambda_gp * gradient_penalty
+            elif model_type == 'WGAN_GP':
+                gradient_penalty = self._gradient_penalty(D, images[0], images[1], tags)
+                loss = -torch.mean(input_data[0]) + torch.mean(input_data[1]) + self.lambda_gp * gradient_penalty
 
             return loss
 
@@ -159,13 +160,33 @@ class Text2ImageGANTrainer():
                 loss = self.loss_layer(input_data[1], target[0])
             elif model_type == 'WGAN':
                 loss = -torch.mean(input_data[1])
-            #elif model_type == 'WGAN_GP':
-            #    loss = -torch.mean(input_data[1])
+            elif model_type == 'WGAN_GP':
+                loss = -torch.mean(input_data[1])
 
             return loss
 
         else:
             raise RuntimeError('Please check source code for mode selection.')
+
+    def _gradient_penalty(self, D, real_image, fake_image, tags):
+        # Random weight term for interpolation between real and fake samples
+        alpha = torch.tensor(np.random.random((real_image.size(0), 1, 1, 1))).float().to(self.env)
+        # Get random interpolation between real and fake samples
+        interpolates = (alpha * real_image.to(self.env) + ((1 - alpha) * fake_image)).requires_grad_(True)
+        d_interpolates = D(interpolates, tags)
+        fake = torch.ones(real_image.size(0), 1).float().requires_grad_(False).to(self.env)
+        gradients = autograd.grad(
+                outputs = d_interpolates,
+                inputs = interpolates,
+                grad_outputs = fake,
+                create_graph = True,
+                retain_graph = True,
+                only_inputs = True
+                )[0]
+        gradients = gradients.view(gradients.size(0), -1)
+        gradient_penalty = ((gradients.norm(2, dim = 1) - 1) ** 2).mean()
+
+        return gradient_penalty
 
     def _select_optim(self, model_type):
         if model_type == 'GAN':
@@ -174,9 +195,9 @@ class Text2ImageGANTrainer():
         elif model_type == 'WGAN':
             self.optim_G = RMSprop(self.model.generator.parameters(), lr = 0.00005)
             self.optim_D = RMSprop(self.model.discriminator.parameters(), lr = 0.00005)
-        #elif model_type == 'WGAN_GP':
-        #    self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        #    self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
+        elif model_type == 'WGAN_GP':
+            self.optim_G = Adam(self.model.generator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
+            self.optim_D = Adam(self.model.discriminator.parameters(), lr = 0.0002, betas = (0.5, 0.999))
 
     def _select_model(self, model_type):
         if model_type not in ['GAN', 'WGAN', 'WGAN_GP']:
@@ -190,10 +211,11 @@ class Text2ImageGANTrainer():
             model = Text2ImageGAN(self.dataset.text_length, self.env, 
                     self.distribution, noise_length = self.noise_length, sigmoid_used = False)
             self.loss_layer = 'Check GANTrainer._calculate_loss().'
-        #elif model_type == 'WGAN_GP':
-        #    model = WGAN_GP(self.distribution, self.env, latent_length = self.latent_length)
-        #    self.lambda_gp = 10
-        #    self.loss_layer = 'Check GANTrainer._calculate_loss().'
+        elif model_type == 'WGAN_GP':
+            model = Text2ImageGAN(self.dataset.text_length, self.env,
+                    self.distribution, noise_length = self.noise_length, sigmoid_used = False)
+            self.lambda_gp = 10
+            self.loss_layer = 'Check GANTrainer._calculate_loss().'
 
         return model
 

@@ -20,7 +20,7 @@ def Load_test_input(path):
             'pink', 'purple']
 
     f = open(path, 'r')
-    text = f.readlines
+    text = f.readlines()
     f.close()
 
     tags = {}
@@ -42,11 +42,13 @@ def Load_test_input(path):
 
         tags[index] = hair * len(eyes) + eye
 
-     tag_tensor = torch.zeros(len(text), len(hairs) * len(eyes))
-     for i in range(len(tags)):
-         tag_tensor[i, tags[i]] = 1
+    tag_tensor = torch.zeros(len(text), len(hairs) * len(eyes))
+    iter_index = 0
+    for key in list(tags.keys()):
+        tag_tensor[iter_index, key] = 1
+        iter_index += 1
 
-     return tag_tensor
+    return tag_tensor
 
 def Een_setting(device):
     if device < 0:
@@ -68,6 +70,6 @@ if __name__ == '__main__':
     env = Een_setting(int(sys.argv[2]))
     model = Load_model(sys.argv[1], env)
     tags = Load_test_input('./data/testing_tags.txt')
-    Save_imgs(model, 'output_' + sys.argv[1].split('/')[-1: ][0].replace('.pkl', ''))
+    Save_imgs(model, 'output_' + sys.argv[1].split('/')[-1: ][0].replace('.pkl', ''), tags)
 
 
