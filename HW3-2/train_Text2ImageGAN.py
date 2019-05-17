@@ -11,6 +11,7 @@ def init_parser(main):
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
     parser.add_argument('--distribution', type = str, default = 'torch', help = 'distribution of generator use [normal or uniform].')
     parser.add_argument('--dataset_mode', type = str, default = 'sample', help = 'how dataset grab data. [sample or batch]')
+    parser.add_argument('--dataset', type = str, default = 'old', help = 'choosing dataset for training. [old or new]')
     parser.add_argument('--switch_ratio', type = int, default = 1, help = 'the switch ratio of training generator and discriminator')
     parser.add_argument('--epochs', type = int, default = 200, help = 'number of epochs of training.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'size of the batches.')
@@ -25,7 +26,7 @@ if __name__ == '__main__':
 
     opt = init_parser(__name__)
     trainer = Text2ImageGANTrainer(opt.model_type, opt.model_name, opt.distribution, opt.noise_length, 
-            opt.dataset_mode, opt.switch_ratio, opt.device)
+            opt.dataset, opt.dataset_mode, opt.switch_ratio, opt.device)
     trainer.train(opt.epochs, opt.batch_size)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 

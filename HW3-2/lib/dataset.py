@@ -11,7 +11,7 @@ from PIL import Image
 from lib.utils import *
 
 class Text2ImageDataset(Dataset):
-    def __init__(self, transform = None, mode = 'sample', data_path = './data'):
+    def __init__(self, transform = None, mode = 'sample', dataset = 'old'):
         # path of data is the directory with sub-directory images/ for training images
         # also have the tags of pairing image ./path/tags
         if transform is None:
@@ -23,59 +23,98 @@ class Text2ImageDataset(Dataset):
             raise ValueError('Please input correct dataset mode. [sample or batch]')
 
         self.mode = mode
-        self.data_path = data_path
-        self.images = self._grab_images(data_path)
+        if dataset == 'old':
+            self.dataset = dataset
+            self.data_path = './data/images'
+        elif dataset == 'new':
+            self.dataset = dataset
+            self.data_path = './data/new_images'
+        else:
+            raise ValueError('Please input correct dataset, [old or new]')
+
+        self.images = self._grab_images(self.data_path)
         eyes, hairs = self._tags_info()
         self.text_length = len(eyes) * len(hairs)
-        self.tags = self._grab_tags(data_path, eyes, hairs)
+        self.tags = self._grab_tags(dataset, eyes, hairs)
+        self.key_list = list(self.tags)
 
     def __getitem__(self, index):
         #real image
         if self.mode == 'sample':
-            select = random.randint(0, len(self.images) - 1)
-            image = self.transform(self.images[select])
-            label_index = self.tags[select]
-            label = torch.zeros(self.text_length)
-            label[label_index] = 1
+            select = random.randint(0, len(self.tags) - 1)
+            select = self.key_list[select]
         elif self.mode == 'batch':
-            image = self.transform(self.images[index])
-            label_index = self.tags[index]
-            label = torch.zeros(self.text_length)
-            label[label_index] = 1
+            select = self.key_list[index]
+
+        image = self.transform(self.images[select])
+        label_index = self.tags[select]
+        label = torch.zeros(self.text_length)
+        label[label_index] = 1
 
         return image, label
 
     def __len__(self):
-        return len(self.images)
+        return len(self.tags)
 
-    def _grab_tags(self, path, eyes, hairs):
-        f = open(path + '/tags.csv', 'r')
-        text = f.readlines()
-        f.close()
+    def _grab_tags(self, dataset, eyes, hairs):
+        if dataset == 'old':
+            f = open('./data/tags.csv', 'r')
+            text = f.readlines()
+            f.close()
 
-        tags = {}
-        for line in text:
-            context = line.replace('\n', '').split(',')
-            index = int(context[0])
-            feature = context[1].split(' ')
-            hair = feature[0]
-            eye = feature[2]
-            for i in range(len(hairs)):
-                if hair == hairs[i]:
-                    hair = i
-                    break
+            tags = {}
+            for line in text:
+                context = line.replace('\n', '').split(',')
+                index = int(context[0])
+                feature = context[1].split(' ')
+                hair = feature[0]
+                eye = feature[2]
+                for i in range(len(hairs)):
+                    if hair == hairs[i]:
+                        hair = i
+                        break
 
-            for i in range(len(eyes)):
-                if eye == eyes[i]:
-                    eye = i
-                    break
+                for i in range(len(eyes)):
+                    if eye == eyes[i]:
+                        eye = i
+                        break
 
-            tags[index] = hair * len(eyes) + eye
+                try:
+                    tags[index] = hair * len(eyes) + eye
+                except TypeError:
+                    continue 
 
-        return tags
-            
+            return tags
+
+        elif dataset == 'new':
+            f = open('./data/new_tags.txt', 'r')
+            text = f.readlines()
+            f.close()
+
+            tags = {}
+            for line in text:
+                context = line.replace('\n', '').split('|')
+                index = int(context[0])
+                eye = context[4].split(' ')[0]
+                hair = context[5].split(' ')[0]
+                for i in range(len(hairs)):
+                    if hair == hairs[i]:
+                        hair = i
+                        break
+
+                for i in range(len(eyes)):
+                    if eye == eyes[i]:
+                        eye = i
+                        break
+
+                try:
+                    tags[index] = hair * len(eyes) + eye
+                except TypeError:
+                    continue
+
+            return tags
+
     def _grab_images(self, path):
-        path = path + '/images'
         name_list = []
         files = os.listdir(path)
         for file in files:

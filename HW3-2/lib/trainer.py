@@ -21,7 +21,7 @@ from lib.visualize import *
 testing_tags = [['blue', 'blue'], ['blue', 'green'], ['blue', 'red'], ['green', 'blue'], ['green', 'red']] 
 
 class Text2ImageGANTrainer():
-    def __init__(self, model_type, model_name, distribution, noise_length, dataset_mode, switch_ratio, device, data_path = './data'):
+    def __init__(self, model_type, model_name, distribution, noise_length, dataset, dataset_mode, switch_ratio, device, data_path = './data'):
         if distribution not in ['uniform', 'normal', 'torch']:
             raise ValueError('Please input correct sample distribution. [uniform, normal, torch]')
 
@@ -36,7 +36,7 @@ class Text2ImageGANTrainer():
         self.loss_layer = None
         self.dataset_mode = dataset_mode
         self.GIF = GIFMaker(testing_tags, 10, self.distribution, self.noise_length, self.env)
-        self.dataset = Text2ImageDataset(mode = dataset_mode)
+        self.dataset = Text2ImageDataset(mode = dataset_mode, dataset = dataset)
         if self._check_continue_training(model_name):
             self.model = self._select_model(model_type)
             self.model = self._load_model(model_name)
@@ -120,7 +120,7 @@ class Text2ImageGANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter,
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 50 == 49:
+        if epoch_iter % 1 == 0:
             self.model = self.model.eval()
             self.GIF.save_img(self.model.generator, self.model_name + '_E' + str(epoch_iter + 1) + '.png')
 
