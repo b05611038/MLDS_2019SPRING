@@ -120,7 +120,7 @@ class Text2ImageGANTrainer():
                 print('Epoch', epoch_iter + 1, '| Iter', iter,
                         '| Generator loss: %.6f' % g_loss.detach(),
                         '| Discriminator loss: %.6f' % d_loss.detach())
-        if epoch_iter % 1 == 0:
+        if epoch_iter % 5 == 4:
             self.model = self.model.eval()
             self.GIF.save_img(self.model.generator, self.model_name + '_E' + str(epoch_iter + 1) + '.png')
 
