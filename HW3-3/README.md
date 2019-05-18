@@ -1,3 +1,15 @@
+# Dependency
+
+```
+pytorch, torchvision, pyyaml, tensorboard, tensorboardX
+```
+
+# Usage
+
+```
+python3 train_MUNIT.py --config configs/example.yaml
+```
+
 # Reference
 
 ```
