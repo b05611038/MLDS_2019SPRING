@@ -128,4 +128,77 @@ class ImageFolder(data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
+###############################################################################
+# Code by self
+# for checking different features in dataset
+###############################################################################
+
+import numpy as np
+from sklearn.model_selection import train_test_split
+
+class Generate_dataset_list():
+
+    def __init__(self, image_path = './data/images', feature_path = './data/features.txt'):
+
+        self.dataset_feature = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald',
+                'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair',
+                'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
+                'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
+                'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard',
+                'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks',
+                'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings',
+                'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
+
+        self.image_path = image_path
+        self.feature_path = feature_path
+        self.num_lines, self.feature_text = self._grab_image_features(feature_path)
+
+    def build_dataset(self, feature, split_ratio = 0.001, save = './data/dataset'):
+        if feature not in self.dataset_feature:
+            raise ValueError('Please input correct feature.')
+
+        for i in range(len(self.dataset_feature)):
+            if self.dataset_feature[i] == feature:
+                index = i
+                break
+
+        exist = []
+        non_exist = []
+        for i in range(len(self.feature_text)):
+            content = self.feature_text[i].replace('\n', '').split(' ')
+            content = [i for i in content if i != '']
+
+            if content[index + 1] == '1':
+                exist.append(self.image_path + '/' + content[0] + '\n')
+            elif content[index + 1] == '-1':
+                non_exist.append(self.image_path + '/' + content[0] + '\n')
+            else:
+                raise RuntimeError("Can't grab feature from feature file.")
+
+        train_a, test_a = train_test_split(exist, test_size = split_ratio, shuffle = False)
+        train_b, test_b = train_test_split(non_exist, test_size = split_ratio, shuffle = False)
+
+        file_name = [save + '/' + feature + '_' + 'list_trainA.txt', save + '/' + feature + '_' + 'list_testA.txt', 
+                save + '/' + feature + '_' + 'list_trainB.txt', save + '/' + feature + '_' + 'list_testB.txt']
+        dataset = [train_a, test_a, train_b, test_b]
+
+        for i in range(len(dataset)):
+            f = open(file_name[i], 'w')
+            f.writelines(dataset[i])
+            f.close()
+
+        print('All process done')
+
+    def _grab_image_features(self, path):
+        f = open(path, 'r')
+        text = f.readlines()
+        f.close()
+
+        num_lines = int(text[0])
+        text = text[2: ]
+        if num_lines != len(text):
+            raise RuntimeError('Please check the data feature file.')
+
+        return num_lines, text
+
 
