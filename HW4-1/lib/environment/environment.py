@@ -57,7 +57,7 @@ class Environment(object):
 
         observation, reward, done, info = self.env.step(action)
 
-        return np.array(observation), reward, done, info
+        return np.array(observation).astype('np.uint8'), reward, done, info
 
     def get_action_space(self):
         return self.action_space
