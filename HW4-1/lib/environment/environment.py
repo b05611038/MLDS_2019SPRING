@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 
+from lib.utils import *
 from lib.environment.wrapper import make_wrap_atari
 
 class Environment(object):
@@ -33,7 +34,7 @@ class Environment(object):
 
         return np.array(observation)
 
-    def step(self,action):
+    def step(self, action):
         '''
         When running dqn:
             observation: np.array

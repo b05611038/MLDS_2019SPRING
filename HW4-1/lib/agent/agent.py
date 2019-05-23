@@ -1,77 +1,53 @@
-import scipy
-import numpy as np
+import os
+import torch
+import torchvision
+import torchvision.transforms as tfs
 
 from lib.agent.base import Agent
+from lib.agent.model import BaselineModel
 
-def prepro(o,image_size=[80,80]):
-    """
-    Call this function to preprocess RGB image to grayscale image if necessary
-    This preprocessing code is from
-        https://github.com/hiwonjoon/tf-a3c-gpu/blob/master/async_agent.py
-    
-    Input: 
-    RGB image: np.array
-        RGB screen of game, shape: (210, 160, 3)
-    Default return: np.array 
-        Grayscale image, shape: (80, 80, 1)
-    
-    """
-    y = o.astype(np.uint8)
-    resized = scipy.misc.imresize(y, image_size)
-    return np.expand_dims(resized.astype(np.float32), axis = 2)
+class PGAgent(Agent):
+    def __init__(self, name, device, observation_size, action_size, model_select, model_path = None,
+            policy = 'Policy gradient'):
 
-class Agent_PG(Agent):
-    def __init__(self, env, args):
-        """
-        Initialize every things you need here.
-        For example: building your model
-        """
+        self.name = name
+        self.device = device
+        self.observation_size = observation_size
+        self.action_size = action_size
+        self.model_select = model_select
+        self.model_path = model_path
+        self.model = self._init_model(model_select, model_path, observation_size, action_size)
 
-        super(Agent_PG,self).__init__(env)
+    def make_action(self, observation, mode = 'env'):
+        if mode == 'env':
+            pass
+        elif mode == 'train':
+            pass
+        else:
+            raise ValueError(mode, 'is not in agent action mode setting.')
 
-        if args.test_pg:
-            #you can load your model here
-            print('loading trained model')
+    def save(self, path):
+        save_path = os.path.join(path, (self.name + '.pth'))
+        torch.save(self.model.state_dict(), model)
 
-        ##################
-        # YOUR CODE HERE #
-        ##################
-
-
-    def init_game_setting(self):
-        """
-        Testing function will call this function at the begining of new game
-        Put anything you want to initialize if necessary
-        """
-        ##################
-        # YOUR CODE HERE #
-        ##################
+    def _preprocess(self, observation):
         pass
 
+    def _init_model(self, model_select, model_path, observation_size, action_size):
+        if model_path is not None:
+            if model_select == 'baseline':
+                model = BaselineModel(image_size = observation_size, action_selection = action_size)
+                model = model.to(self.device)
+                return model
+            else:
+                raise ValueError(model_select, 'is not in implemented model.')
 
-    def train(self):
-        """
-        Implement your training algorithm here
-        """
-        ##################
-        # YOUR CODE HERE #
-        ##################
-        pass
+        else:
+            if model_select == 'baseline':
+                model = BaselineModel(image_size = observation_size, action_selection = action_size)
+                model = model.load_state_dict(torch.load(model_path))
+                model = model.to(self.device)
 
-
-    def make_action(self, observation, test=True):
-        """
-        Return predicted action of your agent
-        Input:
-            observation: np.array
-                current RGB screen of game, shape: (210, 160, 3)
-        Return:
-            action: int
-                the predicted action from trained model
-        """
-        ##################
-        # YOUR CODE HERE #
-        ##################
-        return self.env.get_random_action()
+                return model
 
 

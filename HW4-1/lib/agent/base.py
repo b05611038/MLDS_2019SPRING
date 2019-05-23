@@ -1,6 +1,19 @@
 from lib.environment.environment import Environment
 
 class Agent(object):
+    def __init__(self, name, model, policy):
+        self.name = name
+        self.model = model
+        self.policy = policy
+
+    def make_action(self, observation, mode):
+        '''
+        to make action when seeing the state: observation
+        '''
+        raise NotImplementedError('Subclasses should implement this!')
+
+
+class HWAgent(object):
     def __init__(self, env):
         self.env = env
 
