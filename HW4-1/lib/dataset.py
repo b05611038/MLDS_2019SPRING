@@ -32,7 +32,7 @@ class ReplayBuffer(Dataset):
         return False if len(self.data) < self.maximum else True
 
     def __getitem__(self, index):
-        #return
+        #return observation, action, reward
         select = random.randint(0, self.maximum - 1)
         select_pair = self.data[select]
         return self.transform(select_pair[0]), torch.tensor([select_pair[1]]), torch.tensor([select_pair[2]])
