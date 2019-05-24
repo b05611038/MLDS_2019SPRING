@@ -15,15 +15,55 @@ from lib.environment.environment import Environment
 from lib.agent.agent import PGAgent
 
 class PGTrainer(object):
-    def __init__(self, model_type, model_name, policy, device):
+    def __init__(self, model_type, model_name, observation_preprocess, valid_action, device, policy = 'PPO', env = 'Pong-v0'):
         self.device = self._device_setting(device)
 
         self.model_type = model_type
         self.model_name = model_name
-        #self.agent = 
+
+        self.env = Environment(env, None)
+        self.observation_preprocess = observation_preprocess
+        self.valid_action = valid_action
+        self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, valid_action)
+        self.state = self._continue_training(model_name)
         self.save_dir = self._create_dir(model_name)
 
         self.policy = policy
+
+    def _save_checkpoint(self, state, mode = 'episode'):
+        #save the state of the model
+        print('Start saving model checkpoint ...')
+        if mode == 'episode':
+            save_dir = os.path.join(self.save_dir, ('model_episode_' + str(state) + '.pth'))
+            self.agent.save(save_dir)
+        elif mode == 'iteration':
+            save_dir = os.path.join(self.save_dir, ('model_iteration_' + str(state) + '.pth'))
+            self.agent.save(save_dir)
+
+        print('Model:', self.model_name, 'checkpoint', state, 'saving done.')
+        return None
+
+    def _continue_training(self, model_name):
+        if os.path.isdir(os.path.join('./output', model_name)):
+            save_dir = os.path.join('./output', model_name)
+            files = os.listdir(save_dir)
+            model_list = []
+            for file in files:
+                if file.endswith('.pth'):
+                    model_list.append(file)
+
+            if len(model_list) > 0:
+                model_list.sort()
+                model_state_path = os.path.join(save_dir, model_list[-1])
+                training_state = int(model_list[-1].replace('.pth', '').split('_')[2])
+
+                #load_model
+                self.agent.load(model_state_path)
+                return training_state
+            else:
+                return 0
+        else:
+            return 0
 
     def _create_dir(self, model_name):
         #information saving directory
