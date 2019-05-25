@@ -15,7 +15,7 @@ from lib.environment.environment import Environment
 from lib.agent.agent import PGAgent
 
 class PGTrainer(object):
-    def __init__(self, model_type, model_name, observation_preprocess, valid_action, device, policy = 'PPO', env = 'Pong-v0'):
+    def __init__(self, model_type, model_name, observation_preprocess, valid_action, device, optimizer = 'Adam', policy = 'PPO', env = 'Pong-v0'):
         self.device = self._device_setting(device)
 
         self.model_type = model_type
@@ -24,11 +24,49 @@ class PGTrainer(object):
         self.env = Environment(env, None)
         self.observation_preprocess = observation_preprocess
         self.valid_action = valid_action
-        self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, valid_action)
+        self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, 1, valid_action)
         self.state = self._continue_training(model_name)
         self.save_dir = self._create_dir(model_name)
 
+        self.dataset = ReplayBuffer(env = env, maximum = 128)
         self.policy = policy
+
+    def play(self, max_state, episode_size, save_interval):
+        state = self.state
+        max_state += self.state
+        while(state <= max_state):
+            self._collect_data(self.agent, self.env, batch_size)
+            if dataset.trainable():
+               pass
+            else:
+               self._collect_data(self.agent, self.env, batch_size)
+
+
+    def _collect_data(self, agent, times):
+        reward = []
+        for i in range(times):
+            done = False
+            observation = self.env.reset()
+            self.agent.insert_memory(observation)
+            time_step = 0
+            while(!done):
+                action = self.agent.make_action(observation)
+                observation_next, reward, done, _ = self.env.step(action)
+                self.dataset.insert(observation, action, reward)
+                observation = observation_next
+                time_step += 1
+
+        return reward
+
+    def _select_optimizer(self, select):
+        if select == 'SGD':
+            self.optim = SGD(self.agent.model.parameters(), lr = 0.01, momentum = 0.9)
+        elif select == 'Adam':
+            self.optim = Adam(self.agent.model.parameters(), lr = 0.01)
+        else:
+            raise ValueError(select, 'is not valid option in choosing optimizer.')
+
+        return None
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
