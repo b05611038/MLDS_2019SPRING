@@ -21,15 +21,20 @@ class PGAgent(Agent):
         self.valid_action = valid_action
 
         self.model_select = model_select
-        self.model = self._init_model(model_select, self.transform.image_size(), action_size)
+        self.model = self._init_model(model_select, self.transform.image_size(), len(valid_action))
         self.memory = None
+
+    def training_model_out(self, observation):
+        self.model = self.model.train()
+        return self.model(observation.to(self.device))
 
     def make_action(self, observation):
         #return processed model observation and action
+        self.model = self.model.eval()
         processed = self._preprocess(observation).to(self.device)
         output = self.model(processed)
-        _, action = torch.max(output, 1)
-        return action.cpu().detach().numpy()[0]
+        action, index = self._decode_model_output(output)
+        return action, output.cpu().detach(), processed.cpu().detach(), action_index
 
     def insert_memory(self, observation):
         observation = self._preprocess(observation)
@@ -45,6 +50,12 @@ class PGAgent(Agent):
         self.model.load_state_dict(torch.load(path))
         self.model.to(self.device)
         return None
+
+    def _decode_model_output(self, model_output):
+        _, action = torch.max(output, 1)
+        action_index = action.cpu().detach().numpy()[0]
+        action = self.valid_action[action_index]
+        return action, action_index
 
     def _preprocess(self, observation):
         return self.transform(observation, self.memory)

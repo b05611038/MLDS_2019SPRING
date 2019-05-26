@@ -20,5 +20,6 @@ decay_by_time
 ## Implmented Policy Gragient base Algorithm
 
 ```
+PO(Policy Gradient)
 PPO(Proximal Policy Gradient)
 ```

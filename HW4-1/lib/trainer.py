@@ -7,7 +7,6 @@ import torchvision
 import torchvision.transforms as tfs
 
 from torch.optim import SGD, Adam
-from torch.utils.data import DataLoader
 
 from lib.utils import *
 from lib.dataset import ReplayBuffer
@@ -15,7 +14,7 @@ from lib.environment.environment import Environment
 from lib.agent.agent import PGAgent
 
 class PGTrainer(object):
-    def __init__(self, model_type, model_name, observation_preprocess, valid_action, device, optimizer = 'Adam', policy = 'PPO', env = 'Pong-v0'):
+    def __init__(self, model_type, model_name, observation_preprocess, device, optimizer = 'Adam', policy = 'PPO', env = 'Pong-v0'):
         self.device = self._device_setting(device)
 
         self.model_type = model_type
@@ -23,40 +22,71 @@ class PGTrainer(object):
 
         self.env = Environment(env, None)
         self.observation_preprocess = observation_preprocess
-        self.valid_action = valid_action
+        self.valid_action = self._valid_action(env)
         self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, 1, valid_action)
         self.state = self._continue_training(model_name)
         self.save_dir = self._create_dir(model_name)
 
-        self.dataset = ReplayBuffer(env = env, maximum = 128)
+        self.dataset = ReplayBuffer(env = env, maximum = 16)
         self.policy = policy
+        self._init_loss_layer(policy)
 
     def play(self, max_state, episode_size, save_interval):
         state = self.state
         max_state += self.state
         while(state <= max_state):
-            self._collect_data(self.agent, self.env, batch_size)
+            self._collect_data(self.agent, self.env, episode_size)
             if dataset.trainable():
                pass
             else:
-               self._collect_data(self.agent, self.env, batch_size)
+               self._collect_data(self.agent, self.env, episode_size)
 
 
-    def _collect_data(self, agent, times):
-        reward = []
-        for i in range(times):
+    def _calculate_loss(self, action, record, reward):
+        _, target = torch.max(record, 0)
+        target = target.detach()
+        if self.policy == 'PO':
+            loss = self.entropy(action, target) * reward
+            return loss
+        elif self.policy == 'PPO':
+            loss = self.entropy(action, target) * reward + self.divergence(action, record)
+            return loss
+
+    def _collect_data(self, agent, rounds):
+        final_reward = []
+        for i in range(rounds):
             done = False
             observation = self.env.reset()
+            self.dataset.new_episode()
             self.agent.insert_memory(observation)
             time_step = 0
+            final_reward.append(0)
             while(!done):
-                action = self.agent.make_action(observation)
+                action, processed, model_out = self.agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
-                self.dataset.insert(observation, action, reward)
+                final_reward[i] += reward
+                if time_step > 800:
+                    self.dataset.insert(processd, model_out, final_reward[i])
+                    break
+
+                if done:
+                    self.dataset.insert(processd, model_out, final_reward[i])
+                else:
+                    self.dataset.insert(processd, model_out)
+
                 observation = observation_next
                 time_step += 1
 
-        return reward
+        return final_reward
+
+    def _init_loss_layer(self, policy):
+        if policy == 'PO':
+            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
+        elif policy == 'PPO':
+            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
+            self.divergence = nn.KLDivLoss(reduction = 'batchmean')
+        else:
+            raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
     def _select_optimizer(self, select):
         if select == 'SGD':
@@ -67,6 +97,11 @@ class PGTrainer(object):
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
         return None
+
+    def _valid_action(self, env):
+        if env == 'Pong-v0':
+            #only need up and down
+            return [2, 5]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
