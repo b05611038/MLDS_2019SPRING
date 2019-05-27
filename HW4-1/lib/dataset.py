@@ -6,14 +6,13 @@ from torch.utils.data import Dataset, DataLoader
 from lib.utils import *
 
 class ReplayBuffer(object):
-    def __init__(self, env, maximum, time_decay, normalized, gamma = 0.99):
+    def __init__(self, env, maximum, preprocess_dict, gamma = 0.99):
         #only note the game environment
         #not the enviroment object
         self.env = env
         self.maximum = maximum
-        self.time_decay = time_decay
+        self.preprocess_dict = preprocess_dict
         self.gamma = gamma
-        self.normalized = normalized
 
         #one elemnet in datalist is a training pair with three elements: observation, reward, action
         #the pair relationship -> model(observation) ==> action ==> reward
@@ -26,20 +25,19 @@ class ReplayBuffer(object):
         return None
 
     def new_episode(self):
-        if len(self.data) >= self.maximum:
+        if len(self.rewards) > self.maximum:
             self.data = self.data[1: ]
-            self.__insert_lock = self.insert_lock[1: ]
+            self.rewards = self.rewards[1: ]
+            self.__insert_lock = self.__insert_lock[1: ]
 
         self.data.append([])
-        self.rewards.append([])
         self.__insert_lock.append(False)
         return None
 
     def insert(self, observation, action, reward = None):
         if self.__insert_lock[-1] != True:
             #not lock can append
-            pair = [observation, action]
-            self.data[-1].append(pair)
+            self.data[-1].append([observation.squeeze(), action])
             if reward is not None:
                 self.rewards.append(reward)
                 self.__insert_lock[-1] = True
@@ -50,7 +48,7 @@ class ReplayBuffer(object):
 
     def trainable(self):
         #check the buffer is ready for training
-        return False if len(self.rewards) < self.maximum else True
+        return True if len(self.rewards) >= self.maximum else False
 
     def getitem(self, episode_size):
         observation = None
@@ -64,16 +62,16 @@ class ReplayBuffer(object):
             dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
             for iter, (obs, act) in enumerate(dataloader):
                 if observation is None:
-                    observation = obs
+                    observation = obs.squeeze()
                 else:
-                    observation = torch.cat((observation, obs), dim = 0)
+                    observation = torch.cat((observation, obs.squeeze()), dim = 0)
 
                 if action is None:
-                    action = act
+                    action = act.squeeze()
                 else:
-                    action = torch.cat((action, act), dim = 0)
+                    action = torch.cat((action, act.squeeze()), dim = 0)
 
-            if self.time_decay:
+            if self.preprocess_dict['time_decay']:
                 time_step = torch.arange(rew.size(0))
                 time_step = torch.flip(time_step, dims = [0]).float()
                 decay = torch.pow(self.gamma, time_step)
@@ -82,9 +80,9 @@ class ReplayBuffer(object):
             if reward is None:
                 reward = rew
             else:
-                rew = torch.cat((reward, rew), dim = 0)
+                reward = torch.cat((reward, rew), dim = 0)
 
-        if self.normalized:
+        if self.preprocess_dict['normalized']:
             mean = torch.mean(reward, dim = 0)
             std = torch.std(reward, dim = 0)
             reward = (reward - mean) / std
@@ -97,8 +95,8 @@ class EpisodeSet(Dataset):
         self.data = data
 
     def __getitem__(self, index):
-        #return observation, action, reward
-        return data[index][0], torch.tensor(data[index][1]).float()
+        #return observation, action
+        return self.data[index][0].float(), self.data[index][1].float()
 
     def __len__(self):
         return len(self.data)

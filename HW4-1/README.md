@@ -21,5 +21,7 @@ decay_by_time
 
 ```
 PO(Policy Gradient)
+PO_clip(Policy Gradient with clipping gradient)
 PPO(Proximal Policy Gradient)
+PPO_clip(Proximal Policy Gradient with clipping gradient)
 ```

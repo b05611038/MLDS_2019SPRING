@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as T
+from PIL import Image
 
 #transform dictionary format pass in the class
 # {'implenmented string': True}
@@ -18,12 +19,22 @@ class Transform(object):
         self.transform = self._init_torchvision_method(preprocess_dict)
 
     def __call__(self, observation, memory = None):
-        if preprocess_dict['slice_scoreboard'] == True:
+        if self.preprocess_dict['slice_scoreboard'] == True:
             observation = self._slice_scoreboard(observation)
 
-        if preprocess_dict['minus_observation'] == True:
+        observation = Image.fromarray(observation)
+        observation = self.transform(observation)
+
+        if self.preprocess_dict['minus_observation'] == True:
             observation = self._minus_observation(observation, memory)
 
+        return observation
+
+    def insert_init_memory(self, observation):
+        if self.preprocess_dict['slice_scoreboard'] == True:
+            observation = self._slice_scoreboard(observation)
+
+        observation = Image.fromarray(observation)
         observation = self.transform(observation)
         return observation
 
@@ -33,9 +44,13 @@ class Transform(object):
             method.append(T.Grayscale())
 
         method.append(T.ToTensor())
+
         return T.Compose(method)
 
     def _minus_observation(self, observation, memory):
+        if memory is None:
+            raise RuntimeError("Please use agent.insert_memory() to insert initial data.")
+
         return observation - memory
 
     def _slice_scoreboard(self, image):

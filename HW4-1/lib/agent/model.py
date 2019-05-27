@@ -16,7 +16,7 @@ class BaselineModel(nn.Module):
                 nn.Linear(np.prod(image_size), 256),
                 nn.Dropout(p = 0.6),
                 nn.ReLU(),
-                nn.Linear(256, action_selection)
+                nn.Linear(256, action_selection),
                 nn.Softmax(dim = -1)
                 )
 

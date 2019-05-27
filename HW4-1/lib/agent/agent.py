@@ -30,14 +30,25 @@ class PGAgent(Agent):
 
     def make_action(self, observation):
         #return processed model observation and action
-        self.model = self.model.eval()
-        processed = self._preprocess(observation).to(self.device)
-        output = self.model(processed)
-        action, index = self._decode_model_output(output)
-        return action, output.cpu().detach(), processed.cpu().detach(), action_index
+        if self.observation_preprocess['minus_observation'] == True:
+            if self.memory is None:
+                raise RuntimeError('Please insert init memory before playing a game.')
 
-    def insert_memory(self, observation):
-        observation = self._preprocess(observation)
+        self.model = self.model.eval()
+        processed = self._preprocess(observation)
+        processed = processed.to(self.device)
+        input_processed = processed.unsqueeze(0)
+        output = self.model(input_processed)
+        self.insert_memory(processed, mode = 'self')
+        action, _ = self._decode_model_output(output)
+        return action, processed.cpu().detach(), output.cpu().detach()
+
+    def insert_memory(self, observation, mode = 'force'):
+        if mode == 'force':
+            observation = self._preprocess(observation, mode = 'init')
+        elif mode == 'self':
+            pass
+
         self.memory = observation
         return None
 
@@ -51,14 +62,17 @@ class PGAgent(Agent):
         self.model.to(self.device)
         return None
 
-    def _decode_model_output(self, model_output):
+    def _decode_model_output(self, output):
         _, action = torch.max(output, 1)
         action_index = action.cpu().detach().numpy()[0]
         action = self.valid_action[action_index]
         return action, action_index
 
-    def _preprocess(self, observation):
-        return self.transform(observation, self.memory)
+    def _preprocess(self, observation, mode = 'normal'):
+        if mode == 'normal':
+            return self.transform(observation, self.memory)
+        elif mode == 'init':
+            return self.transform.insert_init_memory(observation)
 
     def _check_memory(self):
         if len(self.memory) > self.max_memory_size:

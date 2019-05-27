@@ -1,10 +1,8 @@
 from lib.environment.environment import Environment
 
 class Agent(object):
-    def __init__(self, name, model, policy):
-        self.name = name
-        self.model = model
-        self.policy = policy
+    def __init__(self):
+        pass
 
     def make_action(self, observation, mode):
         '''
