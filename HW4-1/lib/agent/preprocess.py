@@ -8,7 +8,7 @@ from PIL import Image
 # {'implenmented string': True}
 
 class Transform(object):
-    def __init__(self, preprocess_dict):
+    def __init__(self, preprocess_dict, device):
         self.implemented_list = self.implenmented()
         self.preprocess_dict = preprocess_dict
         keys = preprocess_dict.keys()
@@ -16,6 +16,7 @@ class Transform(object):
             if key not in self.implemented_list:
                 raise KeyError(key, 'is not the implemented observation preprocess method.')
 
+        self.device = device
         self.transform = self._init_torchvision_method(preprocess_dict)
 
     def __call__(self, observation, memory = None):
@@ -51,7 +52,7 @@ class Transform(object):
         if memory is None:
             raise RuntimeError("Please use agent.insert_memory() to insert initial data.")
 
-        return observation - memory
+        return observation.to(self.device) - memory
 
     def _slice_scoreboard(self, image):
         image = image[24:, :, :]

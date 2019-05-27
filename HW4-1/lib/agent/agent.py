@@ -15,7 +15,7 @@ class PGAgent(Agent):
         self.device = device
 
         self.observation_preprocess = observation_preprocess
-        self.transform = Transform(observation_preprocess)
+        self.transform = Transform(observation_preprocess, device)
 
         self.max_memory_size = max_memory_size
         self.valid_action = valid_action
@@ -49,7 +49,7 @@ class PGAgent(Agent):
         elif mode == 'self':
             pass
 
-        self.memory = observation
+        self.memory = observation.to(self.device)
         return None
 
     def save(self, path):
