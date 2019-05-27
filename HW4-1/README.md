@@ -21,7 +21,6 @@ decay_by_time
 
 ```
 PO(Policy Gradient)
-PO_clip(Policy Gradient with clipping gradient)
-PPO(Proximal Policy Gradient)
-PPO_clip(Proximal Policy Gradient with clipping gradient)
+PPO(Proximal Policy Gradient, with KL Divergence loss)
+PPO2(Proximal Policy Gradient ver2, clip important sampling weight)
 ```

@@ -34,9 +34,9 @@ def init_parser(main):
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
-    parser.add_argument('--iterations', type = int, default = 1000, help = 'How many episode to train your policy net.')
-    parser.add_argument('--episode_size', type = int, default = 128, help = 'How many games to play in an episode.')
-    parser.add_argument('--checkpoint', type = int, default = 100, help = 'The interval of saving a model checkpoint.')
+    parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
+    parser.add_argument('--episode_size', type = int, default = 4, help = 'How many games to play in an episode.')
+    parser.add_argument('--checkpoint', type = int, default = 1000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')
     parser.add_argument('--gray_scale', type = str2bool, default = True,

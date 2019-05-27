@@ -30,31 +30,39 @@ class PGTrainer(object):
         self.state = self._continue_training(model_name)
         self.save_dir = self._create_dir(model_name)
         self.model = self.agent.model
-        self._select_optimizer(optimizer)
+        self._select_optimizer(optimizer, policy)
 
         self.reward_preprocess = reward_preprocess
         self.dataset = ReplayBuffer(env = env, maximum = 1, preprocess_dict = reward_preprocess)
         self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward'])
-        self.policy, self.clip = self._interpert_policy(policy)
-        self._init_loss_layer(self.policy)
+        self.policy = policy
+        self._init_loss_layer(policy)
 
     def play(self, max_state, episode_size, save_interval):
-        self.dataset.reset_maximum(episode_size * 4)
+        #on-policy and off-policy
+        if self.policy == 'PO':
+            self.dataset.reset_maximum(episode_size)
+        else:
+            self.dataset.reset_maximum(episode_size * 4)
+
         state = self.state
         max_state += self.state
         while(state < max_state):
             self.agent.model = self.model
             reward, reward_mean = self._collect_data(self.agent, episode_size)
             if self.dataset.trainable():
-               loss = self._update_policy(episode_size)
+                if self.policy == 'PO':
+                    loss = self._update_policy(episode_size, times = 1)
+                else:
+                    loss = self._update_policy(episode_size)
 
-               self.agent.model = self.model
-               test_reward = self._test_game(self.agent)
-               self.recorder.insert([state, loss, reward_mean, test_reward])
-               print('Traing state:', state, '| Loss:', loss, '| Mean reward:', reward_mean, '| Test game reward:', test_reward)
-               state += 1
+                self.agent.model = self.model
+                test_reward = self._test_game(self.agent)
+                self.recorder.insert([state, loss, reward_mean, test_reward])
+                print('\nTraing state:', state, '| Loss:', loss, '| Mean reward:', reward_mean, '| Test game reward:', test_reward, '\n')
+                state += 1
             else:
-               continue
+                continue
 
             if state % save_interval == 0 and state != 0:
                 self._save_checkpoint(state)
@@ -64,25 +72,35 @@ class PGTrainer(object):
         print('Training Agent:', self.model_name, 'finish.')
         return None
 
-    def _update_policy(self, episode_size):
+    def _update_policy(self, episode_size, times = 5):
         self.model = self.model.train().to(self.device)
-        observation, action, reward = self.dataset.getitem(episode_size)
-        observation = observation.to(self.device)
-        action = action.to(self.device)
-        reward = reward.to(self.device)
+        final_loss = []
+        for iter in range(times):
+            observation, action, reward = self.dataset.getitem(episode_size)
+            observation = observation.to(self.device)
+            action = action.to(self.device)
+            reward = reward.to(self.device)
+            
+            self.optim.zero_grad()
+            
+            output = self.model(observation)
+            
+            loss = self._calculate_loss(output, action, reward)
+            loss.backward()
 
-        self.optim.zero_grad()
+            if self.policy == 'PPO':
+                nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
 
-        output = self.model(observation)
+            final_loss.append(loss.detach().cpu())
+            
+            self.optim.step()
 
-        loss = self._calculate_loss(output, action, reward)
-        loss.backward()
+            if times != 1:
+                print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
 
-        if self.clip:
-            nn.utils.clip_grad_value_(self.model.parameters(), 1.0)
+        final_loss = torch.mean(torch.tensor(final_loss)).detach().numpy()
 
-        self.optim.step()
-        return loss.detach().cpu().numpy()
+        return final_loss
 
     def _calculate_loss(self, action, record, reward):
         _, target = torch.max(record, 1)
@@ -91,8 +109,33 @@ class PGTrainer(object):
             loss = torch.mean(self.entropy(action, target) * (-reward))
             return loss
         elif self.policy == 'PPO':
-            loss = torch.mean(self.entropy(action, target) * (-reward) + self.divergence(action, record))
+            important_weight = self._important_weight(record, action, target)
+            kl_loss = self.divergence(action, record)
+            self._dynamic_beta(kl_loss)
+            loss = torch.mean(self.entropy(action, target) * (-reward) * important_weight) - self.beta * kl_loss
             return loss
+        elif self.policy == 'PPO2':
+            important_weight = self._important_weight(record, action, target)
+            important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
+            loss = torch.mean(self.entropy(action, target) * (-reward) * important_weight)
+            return loss
+
+    def _dynamic_beta(self, kl_loss, dynamic_para = 0.9):
+        if kl_loss >= self.kl_max:
+            self.beta *= (dynamic_para / 1)
+        elif kl_loss <= self.kl_min:
+            self.beta *= dynamic_para
+        else:
+            pass
+
+        return None
+
+    def _important_weight(self, record, action, target):
+        important_weight = record / action
+        target = target.repeat([2, 1]).transpose(0, 1)
+        important_weight = torch.gather(important_weight, 1, target)
+        important_weight = torch.mean(important_weight, dim = 1)
+        return important_weight
 
     def _test_game(self, agent):
         done = False
@@ -108,6 +151,7 @@ class PGTrainer(object):
         return final_reward
 
     def _collect_data(self, agent, rounds):
+        print('Start interact with environment ...')
         final_reward = []
         for i in range(rounds):
             done = False
@@ -132,8 +176,12 @@ class PGTrainer(object):
                 observation = observation_next
                 time_step += 1
 
+            if i % 5 == 4:
+                print('Progress:', i + 1, '/', rounds)
+
         final_reward = np.asarray(final_reward)
         reward_mean = np.mean(final_reward)
+        print('Data collecting process finish.')
 
         return final_reward, reward_mean
 
@@ -142,21 +190,21 @@ class PGTrainer(object):
             self.entropy = nn.CrossEntropyLoss(reduction = 'none')
         elif policy == 'PPO':
             self.entropy = nn.CrossEntropyLoss(reduction = 'none')
+            self.beta = 1.0
+            self.kl_max = -1.2
+            self.kl_min = -1.3
             self.divergence = nn.KLDivLoss(reduction = 'batchmean')
+        elif policy == 'PPO2':
+            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
+            self.clip_value = 0.2
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
-    def _interpert_policy(self, policy):
-        content = policy.split('_')
-        policy = content[0]
-        clip = False if len(content) == 1 else True
-        return policy, clip
-
-    def _select_optimizer(self, select):
+    def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.model.parameters(), lr = 0.01, momentum = 0.9)
+            self.optim = SGD(self.model.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.model.parameters(), lr = 0.01)
+            self.optim = Adam(self.model.parameters(), lr = 0.0001)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
