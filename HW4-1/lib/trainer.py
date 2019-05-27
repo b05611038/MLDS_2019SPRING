@@ -79,7 +79,7 @@ class PGTrainer(object):
         loss.backward()
 
         if self.clip:
-            nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
+            nn.utils.clip_grad_value_(self.model.parameters(), 1.0)
 
         self.optim.step()
         return loss.detach().cpu().numpy()
