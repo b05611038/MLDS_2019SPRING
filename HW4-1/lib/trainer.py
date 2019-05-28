@@ -106,21 +106,21 @@ class PGTrainer(object):
         _, target = torch.max(record, 1)
         target = target.detach()
         if self.policy == 'PO':
-            loss = torch.mean(self.entropy(action, target) * (-reward))
+            loss = torch.mean(self.entropy(action, target) * reward)
             return loss
         elif self.policy == 'PPO':
             important_weight = self._important_weight(record, action, target)
-            kl_loss = self.divergence(action, record)
+            kl_loss = self.divergence(record, action)
             self._dynamic_beta(kl_loss)
-            loss = torch.mean(self.entropy(action, target) * (-reward) * important_weight) - self.beta * kl_loss
+            loss = torch.mean(self.entropy(action, target) * reward * important_weight) + self.beta * kl_loss
             return loss
         elif self.policy == 'PPO2':
             important_weight = self._important_weight(record, action, target)
             important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
-            loss = torch.mean(self.entropy(action, target) * (-reward) * important_weight)
+            loss = torch.mean(self.entropy(action, target) * reward * important_weight)
             return loss
 
-    def _dynamic_beta(self, kl_loss, dynamic_para = 0.9):
+    def _dynamic_beta(self, kl_loss, dynamic_para = 2.0):
         if kl_loss >= self.kl_max:
             self.beta *= (dynamic_para / 1)
         elif kl_loss <= self.kl_min:
@@ -131,7 +131,7 @@ class PGTrainer(object):
         return None
 
     def _important_weight(self, record, action, target):
-        important_weight = record / action
+        important_weight = action / record
         target = target.repeat([2, 1]).transpose(0, 1)
         important_weight = torch.gather(important_weight, 1, target)
         important_weight = torch.mean(important_weight, dim = 1)
@@ -159,19 +159,26 @@ class PGTrainer(object):
             self.dataset.new_episode()
             self.agent.insert_memory(observation)
             time_step = 0
+            mini_counter = 0
             final_reward.append(0.0)
             while not done:
                 action, processed, model_out = self.agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
                 if time_step == 800:
-                    self.dataset.insert(processed, model_out, final_reward[i])
+                    self.dataset.insert(processed, model_out)
+                    mini_counter += 1
+                    self.dataset.insert_reward(reward, mini_counter, True)
                     break
 
-                if done:
-                    self.dataset.insert(processed, model_out, final_reward[i])
+                if reward == 0:
+                    self.dataset.insert(processed, model_out)
+                    mini_counter += 1
                 else:
                     self.dataset.insert(processed, model_out)
+                    mini_counter += 1
+                    self.dataset.insert_reward(reward, mini_counter, done)
+                    mini_counter = 0
 
                 observation = observation_next
                 time_step += 1
@@ -190,13 +197,13 @@ class PGTrainer(object):
             self.entropy = nn.CrossEntropyLoss(reduction = 'none')
         elif policy == 'PPO':
             self.entropy = nn.CrossEntropyLoss(reduction = 'none')
-            self.beta = 1.0
-            self.kl_max = -1.2
-            self.kl_min = -1.3
+            self.beta = 2.0
+            self.kl_max = 1.0
+            self.kl_min = -1.0
             self.divergence = nn.KLDivLoss(reduction = 'batchmean')
         elif policy == 'PPO2':
             self.entropy = nn.CrossEntropyLoss(reduction = 'none')
-            self.clip_value = 0.2
+            self.clip_value = 0.5
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
@@ -204,7 +211,7 @@ class PGTrainer(object):
         if select == 'SGD':
             self.optim = SGD(self.model.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.model.parameters(), lr = 0.0001)
+            self.optim = Adam(self.model.parameters(), lr = 0.001)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
@@ -213,7 +220,7 @@ class PGTrainer(object):
     def _valid_action(self, env):
         if env == 'Pong-v0':
             #only need up and down
-            return [2, 5]
+            return [0, 1, 2, 3, 4, 5]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model

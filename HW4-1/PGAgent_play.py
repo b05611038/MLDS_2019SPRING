@@ -30,7 +30,7 @@ def init_parser(main):
 
     parser.add_argument('model_type', type = str, help = 'One model can choose. [baseline]')
     parser.add_argument('model_name', type = str, help = 'Model name of the model.')
-    parser.add_argument('Algorithm', type = str, help = 'Implemented Policy gradient base algorithm. [PO, PO_clip, PPO, PPO_clip]')
+    parser.add_argument('Algorithm', type = str, help = 'Implemented Policy gradient base algorithm. [PO, PPO, PPO2]')
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
