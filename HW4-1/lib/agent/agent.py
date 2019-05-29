@@ -40,7 +40,7 @@ class PGAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
         self.insert_memory(processed, mode = 'self')
-        action, _ = self._decode_model_output(output)
+        action = self._decode_model_output(output)
         return action, processed.cpu().detach(), output.cpu().detach()
 
     def insert_memory(self, observation, mode = 'force'):
@@ -62,11 +62,17 @@ class PGAgent(Agent):
         self.model.to(self.device)
         return None
 
-    def _decode_model_output(self, output):
-        _, action = torch.max(output, 1)
-        action_index = action.cpu().detach().numpy()[0]
-        action = self.valid_action[action_index]
-        return action, action_index
+    def _decode_model_output(self, output, mode = 'argmax'):
+        if mode == 'argmax':
+            _, action = torch.max(output, 1)
+            action_index = action.cpu().detach().numpy()[0]
+            action = self.valid_action[action_index]
+            return action
+        elif mode == 'sample':
+            output = output.squeeze().detach().cpu().numpy()
+            action_index = np.random.choice(len(self.valid_action), 1, p = output)[0]
+            action = self.valid_action[action_index]
+            return action
 
     def _preprocess(self, observation, mode = 'normal'):
         if mode == 'normal':

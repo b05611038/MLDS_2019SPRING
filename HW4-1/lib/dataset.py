@@ -14,6 +14,7 @@ class ReplayBuffer(object):
         self.maximum = maximum
         self.preprocess_dict = preprocess_dict
         self.gamma = gamma
+        self.eps = 10e-7
 
         #one elemnet in datalist is a training pair with three elements: observation, reward, action
         #the pair relationship -> model(observation) ==> action ==> reward
@@ -99,7 +100,7 @@ class ReplayBuffer(object):
         if self.preprocess_dict['normalized']:
             mean = torch.mean(reward, dim = 0)
             std = torch.std(reward, dim = 0)
-            reward = (reward - mean) / std
+            reward = (reward - mean) / (std + self.eps)
 
         return observation, action, reward
 

@@ -32,6 +32,8 @@ class PGTrainer(object):
         self.model = self.agent.model
         self._select_optimizer(optimizer, policy)
 
+        self.eps = 10e-7
+
         self.reward_preprocess = reward_preprocess
         self.dataset = ReplayBuffer(env = env, maximum = 1, preprocess_dict = reward_preprocess)
         self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward'])
@@ -88,8 +90,8 @@ class PGTrainer(object):
             loss = self._calculate_loss(output, action, reward)
             loss.backward()
 
-            if self.policy == 'PPO':
-                nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
+            #if self.policy == 'PPO':
+            #    nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
 
             final_loss.append(loss.detach().cpu())
             
@@ -106,32 +108,36 @@ class PGTrainer(object):
         _, target = torch.max(record, 1)
         target = target.detach()
         if self.policy == 'PO':
-            loss = torch.mean(self.entropy(action, target) * reward)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward, dim = 0)
             return loss
         elif self.policy == 'PPO':
             important_weight = self._important_weight(record, action, target)
             kl_loss = self.divergence(record, action)
             self._dynamic_beta(kl_loss)
-            loss = torch.mean(self.entropy(action, target) * reward * important_weight) + self.beta * kl_loss
+            kl_loss = self.beta + kl_loss.sum(dim = 1)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward * important_weight + kl_loss, dim = 0)
             return loss
         elif self.policy == 'PPO2':
             important_weight = self._important_weight(record, action, target)
             important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
-            loss = torch.mean(self.entropy(action, target) * reward * important_weight)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward * important_weight, dim = 0)
             return loss
 
     def _dynamic_beta(self, kl_loss, dynamic_para = 2.0):
-        if kl_loss >= self.kl_max:
-            self.beta *= (dynamic_para / 1)
-        elif kl_loss <= self.kl_min:
+        if -kl_loss.mean() > self.kl_target:
             self.beta *= dynamic_para
+        elif -kl_loss.mean() < self.kl_target:
+            self.beta *= (dynamic_para / 1)
         else:
             pass
 
         return None
 
     def _important_weight(self, record, action, target):
-        important_weight = action / record
+        important_weight = action / record + self.eps
         target = target.repeat([2, 1]).transpose(0, 1)
         important_weight = torch.gather(important_weight, 1, target)
         important_weight = torch.mean(important_weight, dim = 1)
@@ -144,7 +150,7 @@ class PGTrainer(object):
         final_reward = 0
         while not done:
             action, _pro, _output = self.agent.make_action(observation)
-            observation_next, reward, done, _info = self.env.step(action)
+            observation_next, reward, done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
 
@@ -165,11 +171,11 @@ class PGTrainer(object):
                 action, processed, model_out = self.agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
-                if time_step == 800:
-                    self.dataset.insert(processed, model_out)
-                    mini_counter += 1
-                    self.dataset.insert_reward(reward, mini_counter, True)
-                    break
+                #if time_step == 800:
+                #    self.dataset.insert(processed, model_out)
+                #    mini_counter += 1
+                #    self.dataset.insert_reward(reward, mini_counter, True)
+                #    break
 
                 if reward == 0:
                     self.dataset.insert(processed, model_out)
@@ -194,16 +200,16 @@ class PGTrainer(object):
 
     def _init_loss_layer(self, policy):
         if policy == 'PO':
-            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
+            pass
         elif policy == 'PPO':
-            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
-            self.beta = 2.0
-            self.kl_max = 1.0
-            self.kl_min = -1.0
-            self.divergence = nn.KLDivLoss(reduction = 'batchmean')
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
+            self.beta = 1.0
+            self.kl_target = 0.01
+            self.divergence = nn.KLDivLoss(reduction = 'none')
         elif policy == 'PPO2':
-            self.entropy = nn.CrossEntropyLoss(reduction = 'none')
-            self.clip_value = 0.5
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
+            self.clip_value = 0.2
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
@@ -220,7 +226,7 @@ class PGTrainer(object):
     def _valid_action(self, env):
         if env == 'Pong-v0':
             #only need up and down
-            return [0, 1, 2, 3, 4, 5]
+            return [2, 3]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
@@ -317,7 +323,7 @@ class Recorder(object):
             if i == len(self.record_column) - 1:
                 lines[0] = lines[0] + self.record_column[i] + '\n'
             else:
-                 lines[0] = lines[0] + self.record_column[i] + ','
+                lines[0] = lines[0] + self.record_column[i] + ','
 
         for i in range(len(self.data)):
             new_lines = ''
