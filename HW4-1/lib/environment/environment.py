@@ -59,6 +59,9 @@ class Environment(object):
 
         return np.array(observation).astype('uint8'), reward, done, info
 
+    def render(self):
+        return self.env.render(mode = 'rgb_array')
+
     def get_action_space(self):
         return self.action_space
 

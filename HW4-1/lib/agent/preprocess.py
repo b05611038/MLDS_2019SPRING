@@ -26,6 +26,9 @@ class Transform(object):
         observation = Image.fromarray(observation)
         observation = self.transform(observation)
 
+        if self.preprocess_dict['gray_scale'] == True:
+            observation = self._gray_scale(observation)
+
         if self.preprocess_dict['minus_observation'] == True:
             observation = self._minus_observation(observation, memory)
 
@@ -37,16 +40,23 @@ class Transform(object):
 
         observation = Image.fromarray(observation)
         observation = self.transform(observation)
+        if self.preprocess_dict['gray_scale'] == True:
+            observation = self._gray_scale(observation)
+
         return observation
 
     def _init_torchvision_method(self, preprocess_dict):
-        method = []
-        if preprocess_dict['gray_scale'] == True:
-            method.append(T.Grayscale())
+        #method = []
+        #if preprocess_dict['gray_scale'] == True:
+        #    method.append(T.Grayscale())
 
-        method.append(T.ToTensor())
+        method = [T.Resize((80, 80)), T.ToTensor()]
 
         return T.Compose(method)
+
+    def _gray_scale(self, tensor, r = 0.2126, g = 0.7125, b = 0.0722):
+        tensor = r * tensor[0, :, :] + g * tensor[1, :, :] + b * tensor[2, :, :]
+        return tensor.unsqueeze(0)
 
     def _minus_observation(self, observation, memory):
         if memory is None:
@@ -59,11 +69,11 @@ class Transform(object):
         return image
 
     def image_size(self):
-        height = 210
-        length = 160
+        height = 80
+        length = 80
         channel = 3
-        if self.preprocess_dict['slice_scoreboard'] == True:
-            height = 186
+        #if self.preprocess_dict['slice_scoreboard'] == True:
+        #    height = 186
         if self.preprocess_dict['gray_scale'] == True:
             channel = 1
         return (height, length, channel)

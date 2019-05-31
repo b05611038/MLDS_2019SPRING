@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.cuda as cuda
+from torch.distributions import Categorical
 
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
@@ -39,16 +40,12 @@ class PGAgent(Agent):
         processed = processed.to(self.device)
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
-        self.insert_memory(processed, mode = 'self')
+        self.insert_memory(observation)
         action = self._decode_model_output(output)
         return action, processed.cpu().detach(), output.cpu().detach()
 
-    def insert_memory(self, observation, mode = 'force'):
-        if mode == 'force':
-            observation = self._preprocess(observation, mode = 'init')
-        elif mode == 'self':
-            pass
-
+    def insert_memory(self, observation):
+        observation = self._preprocess(observation, mode = 'init')
         self.memory = observation.to(self.device)
         return None
 
@@ -62,15 +59,16 @@ class PGAgent(Agent):
         self.model.to(self.device)
         return None
 
-    def _decode_model_output(self, output, mode = 'argmax'):
+    def _decode_model_output(self, output, mode = 'sample'):
         if mode == 'argmax':
             _, action = torch.max(output, 1)
             action_index = action.cpu().detach().numpy()[0]
             action = self.valid_action[action_index]
             return action
         elif mode == 'sample':
-            output = output.squeeze().detach().cpu().numpy()
-            action_index = np.random.choice(len(self.valid_action), 1, p = output)[0]
+            output = output.detach().squeeze().cpu()
+            m = Categorical(output)
+            action_index = m.sample().numpy()
             action = self.valid_action[action_index]
             return action
 

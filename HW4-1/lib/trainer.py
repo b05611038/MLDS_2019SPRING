@@ -36,7 +36,7 @@ class PGTrainer(object):
 
         self.reward_preprocess = reward_preprocess
         self.dataset = ReplayBuffer(env = env, maximum = 1, preprocess_dict = reward_preprocess)
-        self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward'])
+        self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward', 'fix_seed_game_reward'])
         self.policy = policy
         self._init_loss_layer(policy)
 
@@ -49,19 +49,30 @@ class PGTrainer(object):
 
         state = self.state
         max_state += self.state
+        record_round = (max_state - state) // 100
+
         while(state < max_state):
+            start_time = time.time()
             self.agent.model = self.model
-            reward, reward_mean = self._collect_data(self.agent, episode_size)
+            reward, reward_mean = self._collect_data(self.agent, episode_size, mode = 'train')
             if self.dataset.trainable():
                 if self.policy == 'PO':
                     loss = self._update_policy(episode_size, times = 1)
                 else:
                     loss = self._update_policy(episode_size)
 
-                self.agent.model = self.model
-                test_reward = self._test_game(self.agent)
-                self.recorder.insert([state, loss, reward_mean, test_reward])
-                print('\nTraing state:', state, '| Loss:', loss, '| Mean reward:', reward_mean, '| Test game reward:', test_reward, '\n')
+                if state % record_round == record_round - 1:
+                    _, test_reward = self._collect_data(self.agent, 10, mode = 'test')
+                    fix_reward = self._fix_game(self.agent)
+                    self.recorder.insert([state, loss, reward_mean, test_reward, fix_reward])
+                    print('\nTraing state:', state + 1, '| Loss:', loss, '| Mean reward:', reward_mean,
+                            '| Test game reward:', test_reward, '| Fix game reward:', fix_reward,
+                            '| Spend Times: %.4f seconds' % (time.time() - start_time), '\n')
+                else:
+                    self.recorder.insert([state, loss, reward_mean, 'NaN', 'NaN'])
+                    print('Traing state:', state + 1, '| Loss:', loss, '| Mean reward:', reward_mean,
+                            '| Spend Times: %.4f seconds' % (time.time() - start_time), '\n')
+
                 state += 1
             else:
                 continue
@@ -108,6 +119,7 @@ class PGTrainer(object):
         _, target = torch.max(record, 1)
         target = target.detach()
         if self.policy == 'PO':
+            action = torch.log(action + self.eps)
             loss = self.loss_layer(action, target)
             loss = torch.mean(loss * reward, dim = 0)
             return loss
@@ -115,13 +127,15 @@ class PGTrainer(object):
             important_weight = self._important_weight(record, action, target)
             kl_loss = self.divergence(record, action)
             self._dynamic_beta(kl_loss)
-            kl_loss = self.beta + kl_loss.sum(dim = 1)
+            kl_loss = self.beta * kl_loss.sum(dim = 1)
+            action = torch.log(action + self.eps)
             loss = self.loss_layer(action, target)
-            loss = torch.mean(loss * reward * important_weight + kl_loss, dim = 0)
+            loss = torch.mean(loss * reward * important_weight - kl_loss, dim = 0)
             return loss
         elif self.policy == 'PPO2':
             important_weight = self._important_weight(record, action, target)
             important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
+            action = torch.log(action + self.eps)
             loss = self.loss_layer(action, target)
             loss = torch.mean(loss * reward * important_weight, dim = 0)
             return loss
@@ -143,7 +157,7 @@ class PGTrainer(object):
         important_weight = torch.mean(important_weight, dim = 1)
         return important_weight
 
-    def _test_game(self, agent):
+    def _fix_game(self, agent):
         done = False
         observation = self.test_env.reset()
         self.agent.insert_memory(observation)
@@ -156,19 +170,22 @@ class PGTrainer(object):
 
         return final_reward
 
-    def _collect_data(self, agent, rounds):
+    def _collect_data(self, agent, rounds, mode = 'train'):
+        agent.model = self.model
         print('Start interact with environment ...')
         final_reward = []
         for i in range(rounds):
             done = False
             observation = self.env.reset()
-            self.dataset.new_episode()
-            self.agent.insert_memory(observation)
+            agent.insert_memory(observation)
+            if mode == 'train':
+                self.dataset.new_episode()
+
             time_step = 0
             mini_counter = 0
             final_reward.append(0.0)
             while not done:
-                action, processed, model_out = self.agent.make_action(observation)
+                action, processed, model_out = agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
                 #if time_step == 800:
@@ -177,14 +194,18 @@ class PGTrainer(object):
                 #    self.dataset.insert_reward(reward, mini_counter, True)
                 #    break
 
-                if reward == 0:
-                    self.dataset.insert(processed, model_out)
-                    mini_counter += 1
-                else:
-                    self.dataset.insert(processed, model_out)
-                    mini_counter += 1
-                    self.dataset.insert_reward(reward, mini_counter, done)
-                    mini_counter = 0
+                if mode == 'train':
+                    if reward == 0:
+                        self.dataset.insert(processed, model_out)
+                        mini_counter += 1
+                    else:
+                        self.dataset.insert(processed, model_out)
+                        mini_counter += 1
+                        self.dataset.insert_reward(reward, mini_counter, done)
+                        mini_counter = 0
+
+                elif mode == 'test':
+                    pass
 
                 observation = observation_next
                 time_step += 1
@@ -258,6 +279,7 @@ class PGTrainer(object):
 
                 #load_model
                 self.agent.load(model_state_path)
+                print('Model:', model_state_path, 'loading done.\nContinue training ...')
                 return training_state
             else:
                 return 0
