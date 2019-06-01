@@ -89,7 +89,10 @@ class PGTrainer(object):
         self.model = self.model.train().to(self.device)
         final_loss = []
         for iter in range(times):
-            observation, action, reward = self.dataset.getitem(episode_size)
+            if self.policy == 'PO':
+                observation, action, reward = self.dataset.getitem(episode_size)
+            else:
+                observation, action, reward = self.dataset.getitem(episode_size * 2)
             observation = observation.to(self.device)
             action = action.to(self.device)
             reward = reward.to(self.device)
@@ -125,12 +128,12 @@ class PGTrainer(object):
             return loss
         elif self.policy == 'PPO':
             important_weight = self._important_weight(record, action, target)
-            kl_loss = self.divergence(record, action)
-            self._dynamic_beta(kl_loss)
-            kl_loss = self.beta * kl_loss.sum(dim = 1)
+            kl_div = F.kl_div(record, action)
+            self._dynamic_beta(kl_div)
+            kl_div = self.beta * kl_div
             action = torch.log(action + self.eps)
             loss = self.loss_layer(action, target)
-            loss = torch.mean(loss * reward * important_weight - kl_loss, dim = 0)
+            loss = torch.mean(loss * reward * important_weight, dim = 0) + kl_div
             return loss
         elif self.policy == 'PPO2':
             important_weight = self._important_weight(record, action, target)
@@ -140,11 +143,11 @@ class PGTrainer(object):
             loss = torch.mean(loss * reward * important_weight, dim = 0)
             return loss
 
-    def _dynamic_beta(self, kl_loss, dynamic_para = 2.0):
-        if -kl_loss.mean() > self.kl_target:
+    def _dynamic_beta(self, kl_loss, dynamic_para = 2.0, ratio = 1.5):
+        if kl_loss.mean() > self.kl_target * ratio:
             self.beta *= dynamic_para
-        elif -kl_loss.mean() < self.kl_target:
-            self.beta *= (dynamic_para / 1)
+        elif kl_loss.mean() < self.kl_target / ratio:
+            self.beta *= (1 / dynamic_para)
         else:
             pass
 
@@ -155,7 +158,7 @@ class PGTrainer(object):
         target = target.repeat([2, 1]).transpose(0, 1)
         important_weight = torch.gather(important_weight, 1, target)
         important_weight = torch.mean(important_weight, dim = 1)
-        return important_weight
+        return important_weight.detach()
 
     def _fix_game(self, agent):
         done = False
@@ -227,7 +230,7 @@ class PGTrainer(object):
             self.loss_layer = nn.NLLLoss(reduction = 'none')
             self.beta = 1.0
             self.kl_target = 0.01
-            self.divergence = nn.KLDivLoss(reduction = 'none')
+            #self.divergence = torch.distributions.kl.kl_divergence()
         elif policy == 'PPO2':
             self.loss_layer = nn.NLLLoss(reduction = 'none')
             self.clip_value = 0.2

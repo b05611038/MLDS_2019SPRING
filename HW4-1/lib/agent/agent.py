@@ -66,11 +66,18 @@ class PGAgent(Agent):
             action = self.valid_action[action_index]
             return action
         elif mode == 'sample':
-            output = output.detach().squeeze().cpu()
-            m = Categorical(output)
-            action_index = m.sample().numpy()
-            action = self.valid_action[action_index]
-            return action
+            try:
+                output = output.detach().squeeze().cpu()
+                m = Categorical(output)
+                action_index = m.sample().numpy()
+                action = self.valid_action[action_index]
+                return action
+            except RuntimeError:
+                #one numbers in  probability distribution is zero
+                _, action = torch.max(output, 0)
+                action_index = action.cpu().detach().numpy()
+                action = self.valid_action[action_index]
+                return action
 
     def _preprocess(self, observation, mode = 'normal'):
         if mode == 'normal':
