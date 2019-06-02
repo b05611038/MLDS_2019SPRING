@@ -3,6 +3,7 @@ import torch
 import torch.cuda as cuda
 from torch.distributions import Categorical
 
+from lib.utils import *
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
 from lib.agent.model import BaselineModel
@@ -41,6 +42,7 @@ class PGAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
         self.insert_memory(observation)
+        output = sigmoid_expand(output)
         action = self._decode_model_output(output)
         return action, processed.cpu().detach(), output.cpu().detach()
 
