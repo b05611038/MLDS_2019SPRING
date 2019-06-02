@@ -17,7 +17,6 @@ class BaselineModel(nn.Module):
                 nn.Dropout(p = 0.6),
                 nn.ReLU(),
                 nn.Linear(256, action_selection, bias = False),
-                nn.Softmax(dim = -1)
                 )
 
     def forward(self, x):
