@@ -91,12 +91,6 @@ class ReplayBuffer(object):
                 else:
                     reward = torch.cat((reward, rew), dim = 0)
 
-            #if self.preprocess_dict['time_decay']:
-            #    time_step = torch.arange(rew.size(0))
-            #    time_step = torch.flip(time_step, dims = [0]).float()
-            #    decay = torch.pow(self.gamma, time_step)
-            #    rew = torch.mul(decay, rew)
-
         if self.preprocess_dict['normalized']:
             mean = torch.mean(reward, dim = 0)
             std = torch.std(reward, dim = 0)

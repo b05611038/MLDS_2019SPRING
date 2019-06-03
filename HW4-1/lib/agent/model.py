@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from lib.utils import *
+
 
 class BaselineModel(nn.Module):
     def __init__(self, image_size, action_selection):
@@ -16,8 +18,8 @@ class BaselineModel(nn.Module):
                 nn.Linear(np.prod(image_size), 256, bias = False),
                 nn.Dropout(p = 0.6),
                 nn.ReLU(),
-                nn.Linear(256, 1, bias = False),
-                nn.Sigmoid()
+                nn.Linear(256, action_selection, bias = False),
+                nn.Softmax(dim = -1)
                 )
 
     def forward(self, x):

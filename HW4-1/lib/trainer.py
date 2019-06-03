@@ -104,9 +104,6 @@ class PGTrainer(object):
             loss = self._calculate_loss(output, action, reward)
             loss.backward()
 
-            #if self.policy == 'PPO':
-            #    nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
-
             final_loss.append(loss.detach().cpu())
             
             self.optim.step()
@@ -122,32 +119,25 @@ class PGTrainer(object):
         _, target = torch.max(record, 1)
         target = target.detach()
         if self.policy == 'PO':
-            #action = torch.log(action + self.eps)
-            #loss = self.loss_layer(action, target)
-            loss = self.loss_layer(action, target.unsqueeze(1).float())
-            #loss = torch.mean(loss * reward, dim = 0)
-            loss = torch.mean(loss.squeeze() * reward, dim = 0)
+            action = torch.log(action + self.eps)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward, dim = 0)
             return loss
         elif self.policy == 'PPO':
             important_weight = self._important_weight(record, action, target)
-            #kl_div = F.kl_div(record, action)
-            kl_div = F.kl_div(record, sigmoid_expand(action))
+            kl_div = F.kl_div(record, action)
             self._dynamic_beta(kl_div)
             kl_div = self.beta * kl_div
-            #action = torch.log(action + self.eps)
-            #loss = self.loss_layer(action, target)
-            loss = self.loss_layer(action, target.unsqueeze(1).float())
-            #loss = torch.mean(loss * reward * important_weight, dim = 0) + kl_div
-            loss = torch.mean(loss.squeeze() * reward * important_weight, dim = 0) + kl_div
+            action = torch.log(action + self.eps)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward * important_weight, dim = 0) + kl_div
             return loss
         elif self.policy == 'PPO2':
             important_weight = self._important_weight(record, action, target)
             important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
-            #action = torch.log(action + self.eps)
-            #loss = self.loss_layer(action, target)
-            loss = self.loss_layer(action, target.unsqueeze(1).float())
-            #loss = torch.mean(loss * reward * important_weight, dim = 0)
-            loss = torch.mean(loss.squeeze() * reward * important_weight, dim = 0)
+            action = torch.log(action + self.eps)
+            loss = self.loss_layer(action, target)
+            loss = torch.mean(loss * reward * important_weight, dim = 0)
             return loss
 
     def _dynamic_beta(self, kl_loss, dynamic_para = 2.0, ratio = 1.5):
@@ -161,7 +151,6 @@ class PGTrainer(object):
         return None
 
     def _important_weight(self, record, action, target):
-        action = sigmoid_expand(action)
         important_weight = action / record + self.eps
         target = target.repeat([2, 1]).transpose(0, 1)
         important_weight = torch.gather(important_weight, 1, target)
@@ -199,11 +188,6 @@ class PGTrainer(object):
                 action, processed, model_out = agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
-                #if time_step == 800:
-                #    self.dataset.insert(processed, model_out)
-                #    mini_counter += 1
-                #    self.dataset.insert_reward(reward, mini_counter, True)
-                #    break
 
                 if mode == 'train':
                     if reward == 0:
@@ -232,17 +216,13 @@ class PGTrainer(object):
 
     def _init_loss_layer(self, policy):
         if policy == 'PO':
-            #self.loss_layer = nn.NLLLoss(reduction = 'none')
-            self.loss_layer = nn.BCELoss(reduction = 'none')
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
         elif policy == 'PPO':
-            #self.loss_layer = nn.NLLLoss(reduction = 'none')
-            self.loss_layer = nn.BCELoss(reduction = 'none')
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
             self.beta = 1.0
             self.kl_target = 0.01
-            #self.divergence = torch.distributions.kl.kl_divergence()
         elif policy == 'PPO2':
-            #self.loss_layer = nn.NLLLoss(reduction = 'none')
-            self.loss_layer = nn.BCELoss(reduction = 'none')
+            self.loss_layer = nn.NLLLoss(reduction = 'none')
             self.clip_value = 0.2
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')

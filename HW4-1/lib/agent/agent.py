@@ -42,7 +42,6 @@ class PGAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
         self.insert_memory(observation)
-        output = sigmoid_expand(output)
         action = self._decode_model_output(output)
         return action, processed.cpu().detach(), output.cpu().detach()
 
@@ -77,7 +76,7 @@ class PGAgent(Agent):
             except RuntimeError:
                 #one numbers in  probability distribution is zero
                 _, action = torch.max(output, 0)
-                action_index = action.cpu().detach().numpy()
+                action_index = action.cpu().detach().numpy()[0]
                 action = self.valid_action[action_index]
                 return action
 

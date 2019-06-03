@@ -46,10 +46,6 @@ class Transform(object):
         return observation
 
     def _init_torchvision_method(self, preprocess_dict):
-        #method = []
-        #if preprocess_dict['gray_scale'] == True:
-        #    method.append(T.Grayscale())
-
         method = [T.Resize((80, 80)), T.ToTensor()]
 
         return T.Compose(method)
@@ -72,8 +68,6 @@ class Transform(object):
         height = 80
         length = 80
         channel = 3
-        #if self.preprocess_dict['slice_scoreboard'] == True:
-        #    height = 186
         if self.preprocess_dict['gray_scale'] == True:
             channel = 1
         return (height, length, channel)
