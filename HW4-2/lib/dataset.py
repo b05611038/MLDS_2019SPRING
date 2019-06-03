@@ -18,6 +18,7 @@ class ReplayBuffer(object):
 
         #one elemnet in datalist is a training pair with three elements: observation, reward, action
         #the pair relationship -> model(observation) ==> action ==> reward
+        self.episode_data = []
         self.data = []
         self.rewards = []
         self.__insert_lock = []
@@ -28,11 +29,11 @@ class ReplayBuffer(object):
 
     def new_episode(self):
         if len(self.rewards) > self.maximum:
-            self.data = self.data[1: ]
+            self.episode_data = self.episode_data[1: ]
             self.rewards = self.rewards[1: ]
             self.__insert_lock = self.__insert_lock[1: ]
 
-        self.data.append([])
+        self.episode_data.append([])
         self.rewards.append([])
         self.__insert_lock.append(False)
         return None
@@ -40,7 +41,7 @@ class ReplayBuffer(object):
     def insert(self, observation, action):
         if self.__insert_lock[-1] != True:
             #not lock can append
-            self.data[-1].append([observation.squeeze(), action])
+            self.episode_data[-1].append([observation.squeeze(), action])
         else:
             raise RuntimeError('Please use new_episode() before insert new episode information.')
 
@@ -48,12 +49,12 @@ class ReplayBuffer(object):
 
     def insert_reward(self, reward, times, done):
         if self.__insert_lock[-1] != True:
-            for i in range(times):
-                if self.preprocess_dict['time_decay']:
-                    decay_reward = reward * math.pow((self.gamma), (times - 1 - i))
-                    self.rewards[-1].append(decay_reward)
-                else:
-                    self.rewards[-1].append(reward)
+            if self.preprocess_dict['time_decay']:
+                decay_reward = (reward * np.power(self.gamma, np.flip(np.arange(times)))).tolist()
+                self.rewards[-1][len(self.rewards[-1]): ] = decay_reward
+            else:
+                normal_reward = (reward * np.repeat(1.0, times)).tolist()
+                self.rewards[-1][len(self.rewards[-1]): ] = normal_reward
 
         else:
             raise RuntimeError('Please use new_episode() before insert new episode information.')
@@ -67,29 +68,17 @@ class ReplayBuffer(object):
         #check the buffer is ready for training
         return True if len(self.rewards) >= self.maximum else False
 
-    def getitem(self, episode_size):
-        observation = None
-        action = None
-        reward = None
-        for i in range(episode_size):
-            select = random.randint(0, self.maximum - 1)
-            dataset = EpisodeSet(self.data[select], self.rewards[select])
-            dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
-            for iter, (obs, act, rew) in enumerate(dataloader):
-                if observation is None:
-                    observation = obs.squeeze()
-                else:
-                    observation = torch.cat((observation, obs.squeeze()), dim = 0)
+    def getitem(self, batch_size):
+        if self.preprocess_dict['prioritized_experience']:
+            dataset = EpisodeSet(self.data, self.rewards, batch_size, True)
+        else:
+            dataset = EpisodeSet(self.data, self.rewards, batch_size, False)
 
-                if action is None:
-                    action = act.squeeze()
-                else:
-                    action = torch.cat((action, act.squeeze()), dim = 0)
-
-                if reward is None:
-                    reward = rew
-                else:
-                    reward = torch.cat((reward, rew), dim = 0)
+        dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
+        for iter, (obs, act, rew) in enumerate(dataloader):
+            observation = obs
+            action = act
+            reward = rew
 
         if self.preprocess_dict['normalized']:
             mean = torch.mean(reward, dim = 0)
@@ -100,16 +89,55 @@ class ReplayBuffer(object):
 
 
 class EpisodeSet(Dataset):
-    def __init__(self, data, rewards):
-        self.data = data
-        self.rewards = rewards
+    def __init__(self, data, rewards, batch_size, priority):
+        if len(data) != len(rewards):
+            raise RuntimeError('The dataset cannot get same length data list.')
+
+        self.batch_size = batch_size
+        self.priority = priority
+        self.observation, self.action, self.reward = self._build(data, rewards)
+
+    def _build(self, data, rewards, priority):
+        reward_list = []
+        for episode in range(len(reward)):
+            for time_step in range(len(reward[episode])):
+                reward_list.append([reward[episode][time_step], episode, time_step])
+
+        if priority:
+            reward_list.sort(key = lambda obj: np.abs(obj[0]))
+
+        observation = None
+        action = None
+        reward = None
+        for index in range(self.batch_size):
+            if priority:
+                select = index
+            else:
+                select = random.randint(0, len(reward_list) - 1)
+                    reward = torch.cat((reward, rew), dim = 0)
+                    reward = torch.cat((reward, rew), dim = 0)
+
+            if observation is None:
+                observation = data[reward_list[select][1]][reward_list[select][2]][0]
+            else:
+                observation = torch.cat((observation, data[reward_list[select][1]][reward_list[select][2]][0]), dim = 0)
+
+            if action is None:
+                action = data[reward_list[select][1]][reward_list[select][2]][1]
+            else:
+                action = torch.cat((action, data[reward_list[select][1]][reward_list[select][2]][1]), axis = 0)
+
+            if reward is None:
+                reward = np.expand_dims(reward_list[select][0])
+            else:
+                reward = np.concatenate((reward, np.expand_dims(reward_list[select][0])), axis = 0)
+
+        return observation, action, reward
 
     def __getitem__(self, index):
-        #return observation, action
-        reward = torch.tensor(self.rewards[index]).float()
-        return self.data[index][0].float(), self.data[index][1].float(), reward
+        return self.observation[index].detach().float(), self.action[index].detach().float(), torch.tensor(self.reward[index])
 
     def __len__(self):
-        return len(self.data)
+        return self.batch_size
 
 

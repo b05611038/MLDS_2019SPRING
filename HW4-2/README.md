@@ -13,6 +13,7 @@ minus_observation
 ## Implemented Reward Preprocess
 
 ```
+prioritized_experience
 ```
 
 ## Implmented Policy Gragient base Algorithm

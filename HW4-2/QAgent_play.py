@@ -21,6 +21,7 @@ def construct_observation_preprocess_dict(args):
 
 def construct_reward_preprocess_dict(args):
     preprocess_dict = {}
+    preprocess_dict['prioritized_experience'] = args[0]
     return preprocess_dict
 
 def init_parser(main):
@@ -41,10 +42,8 @@ def init_parser(main):
             help = 'Method of image preprocess, if true, the input image would from RGB -> Gray scale.')
     parser.add_argument('--minus_observation',  type = str2bool, default = True,
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')
-    parser.add_argument('--reward_normalize', type = str2bool, default = True,
-            help = 'Method of reward process, if true, reward would be normalize by batch.')
-    parser.add_argument('--decay_by_time', type = str2bool, default = True,
-            help = 'Method of reward process, if true, reward would decay by time step.')
+    parser.add_argument('--prioritized_experience', type = str2bool, default = True,
+            help = 'Method of reward process, if true, dataset would select training pair with higher absolute reward.')
 
     opt = parser.parse_args()
     print(opt)

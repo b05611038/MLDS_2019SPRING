@@ -96,7 +96,7 @@ class ReplayBuffer(object):
             std = torch.std(reward, dim = 0)
             reward = (reward - mean) / (std + self.eps)
 
-        return observation, action, reward
+        return observation.detach(), action.detach(), reward.detach()
 
 
 class EpisodeSet(Dataset):
