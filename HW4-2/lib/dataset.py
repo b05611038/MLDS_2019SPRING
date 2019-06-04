@@ -84,11 +84,6 @@ class ReplayBuffer(object):
             next_observation.append(next_obs)
             action.append(act)
 
-            if self.preprocess_dict['normalized']:
-                mean = torch.mean(reward, dim = 0)
-                std = torch.std(reward, dim = 0)
-                reward = (reward - mean) / (std + self.eps)
-
             reward.append(rew)
 
         return observation, next_observation, action, reward

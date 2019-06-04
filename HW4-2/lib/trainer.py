@@ -1,5 +1,6 @@
 import os
 import time
+import copy
 import numpy as np
 import torch
 import torch.cuda as cuda
@@ -29,7 +30,13 @@ class QTrainer(object):
         self.agent = QAgent(model_name, model_type, self.device, observation_preprocess, 1, self.valid_action)
         self.state = self._continue_training(model_name)
         self.save_dir = self._create_dir(model_name)
-        self.model = self.agent.model
+
+        self.policy_net = self.agent.model
+        if policy.split('_')[-1] == 'target':
+            self.target_net = copy.deepcopy(self.policy_net)
+        else:
+            self.target_net = None
+
         self._select_optimizer(optimizer, policy)
 
         self.eps = 10e-7
@@ -40,8 +47,7 @@ class QTrainer(object):
         self.policy = policy
         self._init_loss_layer(policy)
 
-    def play(self, max_state, episode_size, save_interval):
-        #on-policy and off-policy
+    def play(self, max_state, episode_size, batch_size, save_interval):
         self.dataset.reset_maximum(episode_size * 4)
 
         state = self.state
@@ -50,11 +56,10 @@ class QTrainer(object):
 
         while(state < max_state):
             start_time = time.time()
-            self.agent.model = self.model
+            self.agent.model = self.policy_net
             reward, reward_mean = self._collect_data(self.agent, episode_size, mode = 'train')
             if self.dataset.trainable():
-                if self.policy == 'Q':
-                    loss = self._update_policy(episode_size)
+                loss = self._update_policy(batch_size)
 
                 if state % record_round == record_round - 1:
                     _, test_reward = self._collect_data(self.agent, 10, mode = 'test')
@@ -80,23 +85,19 @@ class QTrainer(object):
         print('Training Agent:', self.model_name, 'finish.')
         return None
 
-    def _update_policy(self, episode_size, times = 5):
+    def _update_policy(self, batch_size, times = 5):
         self.model = self.model.train().to(self.device)
         final_loss = []
+        observation, next_observation, action, reward = self.dataset.getitem(batch_size, times)
         for iter in range(times):
-            if self.policy == 'PO':
-                observation, action, reward = self.dataset.getitem(episode_size)
-            else:
-                observation, action, reward = self.dataset.getitem(episode_size * 2)
-            observation = observation.to(self.device)
-            action = action.to(self.device)
-            reward = reward.to(self.device)
+            obs = observation[iter].to(self.device)
+            obs_next = next_observation[iter].to(self.device)
+            act = action[iter].to(self.device)
+            rew = reward[iter].to(self.device)
             
             self.optim.zero_grad()
             
-            output = self.model(observation)
-            
-            loss = self._calculate_loss(output, action, reward)
+            loss = self._calculate_loss(obs, obs_next, act, rew, self.policy_net, self.target_net)
             loss.backward()
 
             final_loss.append(loss.detach().cpu())
@@ -110,12 +111,16 @@ class QTrainer(object):
 
         return final_loss
 
-    def _calculate_loss(self, action, record, reward):
+    def _calculate_loss(self, observation, next_observation, action, reward, policy_net, target_net):
         _, target = torch.max(record, 1)
         target = target.detach()
-        if self.policy == 'Q':
+        if self.policy == 'Q_l1' or self.policy == 'Q_l2':
             pass
+
+            loss = self.loss_layer()
             return loss
+        elif policy == 'Q_l1_target' or policy == 'Q_l2_target':
+            pass
 
     def _fix_game(self, agent):
         done = False
@@ -131,7 +136,7 @@ class QTrainer(object):
         return final_reward
 
     def _collect_data(self, agent, rounds, mode = 'train'):
-        agent.model = self.model
+        agent.model = self.policy_net
         print('Start interact with environment ...')
         final_reward = []
         for i in range(rounds):
@@ -144,23 +149,30 @@ class QTrainer(object):
             time_step = 0
             mini_counter = 0
             final_reward.append(0.0)
+            last_observation = None
+            last_action = None
+            last_reward = None
             while not done:
-                action, processed, model_out = agent.make_action(observation)
+                action, processed = agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
 
-                if mode == 'train':
+                if mode == 'train' and last_observation is not None:
                     if reward == 0:
-                        self.dataset.insert(processed, model_out)
+                        self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
                     else:
-                        self.dataset.insert(processed, model_out)
+                        self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
                         self.dataset.insert_reward(reward, mini_counter, done)
                         mini_counter = 0
 
                 elif mode == 'test':
                     pass
+
+                last_observation = processed
+                last_action = action
+                last_reward = reward
 
                 observation = observation_next
                 time_step += 1
@@ -175,14 +187,18 @@ class QTrainer(object):
         return final_reward, reward_mean
 
     def _init_loss_layer(self, policy):
-        if policy == 'Q':
-            return [0, 1, 2, 3]
+        if policy == 'Q_l1' or policy == 'Q_l1_target':
+            self.loss_layer = nn.L1Loss()
+        elif policy == 'Q_l2' or policy == 'Q_l2_target':
+            self.loss_layer = nn.MSELoss()
+        else:
+            raise NotImplementedError(policy, 'is not in implemented q-learning algorithm.')
 
     def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.model.parameters(), lr = 0.01)
+            self.optim = SGD(self.policy_net.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.model.parameters(), lr = 0.001)
+            self.optim = Adam(self.policy_net.parameters(), lr = 0.001)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
@@ -190,12 +206,12 @@ class QTrainer(object):
 
     def _valid_action(self, env):
         if env == 'Breakout-v0':
-            pass
+            return [0, 1, 2, 3]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
         print('Start saving model checkpoint ...')
-        self.agent.model = self.model
+        self.agent.model = self.policy_net
         if mode == 'episode':
             save_dir = os.path.join(self.save_dir, ('model_episode_' + str(state) + '.pth'))
             self.agent.save(save_dir)

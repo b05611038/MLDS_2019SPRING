@@ -1,7 +1,7 @@
+import random
 import numpy as np
 import torch
 import torch.cuda as cuda
-from torch.distributions import Categorical
 
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
@@ -29,7 +29,7 @@ class QAgent(Agent):
         self.model = self.model.train()
         return self.model(observation.to(self.device))
 
-    def make_action(self, observation):
+    def make_action(self, observation, mode = 'argmax', p = None):
         #return processed model observation and action
         if self.observation_preprocess['minus_observation'] == True:
             if self.memory is None:
@@ -41,9 +41,9 @@ class QAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
         self.insert_memory(observation)
-        action = self._decode_model_output(output)
+        action = self._decode_model_output(output, mode, p)
 
-        #return action, processed.cpu().detach(), output.cpu().detach()
+        return action, processed.cpu().detach()
 
     def insert_memory(self, observation):
         self.memory = observation.to(self.device)
@@ -59,27 +59,27 @@ class QAgent(Agent):
         self.model.to(self.device)
         return None
 
-    def _decode_model_output(self, output, mode = 'sample'):
-        '''
+    def _decode_model_output(self, output, mode, p):
         if mode == 'argmax':
             _, action = torch.max(output, 1)
             action_index = action.cpu().detach().numpy()[0]
             action = self.valid_action[action_index]
             return action
-        elif mode == 'sample':
-            try:
-                output = output.detach().squeeze().cpu()
-                m = Categorical(output)
-                action_index = m.sample().numpy()
+        elif mode == 'mix':
+            # p is rnadom probability, if 1.0 means all action is random
+            if p is None:
+                raise ValueError('Please set argument p in make_action')
+
+            if random.random() < p:
+                #means random action
+                action_index = random.randint(0, len(self.valid_action) - 1)
                 action = self.valid_action[action_index]
                 return action
-            except RuntimeError:
-                #one numbers in  probability distribution is zero
-                _, action = torch.max(output, 0)
-                action_index = action.cpu().detach().numpy()
+            else:
+                _, action = torch.max(output, 1)
+                action_index = action.cpu().detach().numpy()[0]
                 action = self.valid_action[action_index]
                 return action
-        '''
 
     def _preprocess(self, observation):
         return self.transform(observation, self.memory)

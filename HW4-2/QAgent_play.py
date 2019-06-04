@@ -22,6 +22,7 @@ def construct_observation_preprocess_dict(args):
 def construct_reward_preprocess_dict(args):
     preprocess_dict = {}
     preprocess_dict['prioritized_experience'] = args[0]
+    preprocess_dict['time_decay'] = args[0]
     return preprocess_dict
 
 def init_parser(main):
@@ -34,6 +35,7 @@ def init_parser(main):
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
     parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
+    parser.add_argument('--batch_size', type = int, default = 128, help = 'The mini-batch_size wants to used in one iteration.')
     parser.add_argument('--episode_size', type = int, default = 4, help = 'How many games to play in an episode.')
     parser.add_argument('--checkpoint', type = int, default = 1000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
@@ -44,6 +46,8 @@ def init_parser(main):
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')
     parser.add_argument('--prioritized_experience', type = str2bool, default = True,
             help = 'Method of reward process, if true, dataset would select training pair with higher absolute reward.')
+    parser.add_argument('--decay_by_time', type = str2bool, default = True,
+            help = 'Method of reward process, if true, reward would decay by time step.')
 
     opt = parser.parse_args()
     print(opt)
@@ -58,7 +62,7 @@ if __name__ == '__main__':
     print(observation_dict, reward_dict)
     trainer = QTrainer(opt.model_type, opt.model_name, observation_dict, reward_dict, opt.device,
             optimizer = opt.optimizer, policy = opt.Algorithm)
-    trainer.play(opt.iterations, opt.episode_size, opt.checkpoint)
+    trainer.play(opt.iterations, opt.episode_size, opt.batch_size, opt.checkpoint)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 
