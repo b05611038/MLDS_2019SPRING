@@ -68,13 +68,13 @@ class ReplayBuffer(object):
         #check the buffer is ready for training
         return True if len(self.rewards) >= self.maximum else False
 
-    def getitem(self, batch_size):
+    def getitem(self, batch_size, update_times):
         if self.preprocess_dict['prioritized_experience']:
             dataset = EpisodeSet(self.data, self.rewards, batch_size, True)
         else:
             dataset = EpisodeSet(self.data, self.rewards, batch_size, False)
 
-        dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
+        dataloader = DataLoader(dataset, batch_size = batch_size * update_times, shuffle = False)
         for iter, (obs, act, rew) in enumerate(dataloader):
             observation = obs
             action = act
