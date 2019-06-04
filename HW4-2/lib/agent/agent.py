@@ -35,17 +35,17 @@ class QAgent(Agent):
             if self.memory is None:
                 raise RuntimeError('Please insert init memory before playing a game.')
 
-        #self.model = self.model.eval()
-        #processed = self._preprocess(observation)
-        #processed = processed.to(self.device)
-        #input_processed = processed.unsqueeze(0)
-        #output = self.model(input_processed)
-        #self.insert_memory(observation)
-        #action = self._decode_model_output(output)
+        self.model = self.model.eval()
+        processed = self._preprocess(observation)
+        processed = processed.to(self.device)
+        input_processed = processed.unsqueeze(0)
+        output = self.model(input_processed)
+        self.insert_memory(observation)
+        action = self._decode_model_output(output)
+
         #return action, processed.cpu().detach(), output.cpu().detach()
 
     def insert_memory(self, observation):
-        observation = self._preprocess(observation, mode = 'init')
         self.memory = observation.to(self.device)
         return None
 
@@ -81,11 +81,8 @@ class QAgent(Agent):
                 return action
         '''
 
-    def _preprocess(self, observation, mode = 'normal'):
-        if mode == 'normal':
-            return self.transform(observation, self.memory)
-        elif mode == 'init':
-            return self.transform.insert_init_memory(observation)
+    def _preprocess(self, observation):
+        return self.transform(observation, self.memory)
 
     def _check_memory(self):
         if len(self.memory) > self.max_memory_size:

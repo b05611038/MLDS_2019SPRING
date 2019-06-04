@@ -14,7 +14,7 @@ class BaselineModel(nn.Module):
         #two layer linear model
         self.main = nn.Sequential(
                 nn.Linear(np.prod(image_size), 256, bias = False),
-                nn.Dropout(p = 0.6),
+                nn.Dropout(p = 0.2),
                 nn.ReLU(),
                 nn.Linear(256, action_selection, bias = False),
                 )

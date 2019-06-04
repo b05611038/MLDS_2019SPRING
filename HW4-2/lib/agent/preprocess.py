@@ -20,29 +20,20 @@ class Transform(object):
         self.transform = self._init_torchvision_method(preprocess_dict)
 
     def __call__(self, observation, memory = None):
-        if self.preprocess_dict['slice_scoreboard'] == True:
+        if self.preprocess_dict['slice_scoreboard']:
             observation = self._slice_scoreboard(observation)
 
         observation = Image.fromarray(observation)
         observation = self.transform(observation)
 
-        if self.preprocess_dict['minus_observation'] == True:
+        if self.preprocess_dict['minus_observation'] and memory is not None:
             observation = self._minus_observation(observation, memory)
-
-        return observation
-
-    def insert_init_memory(self, observation):
-        if self.preprocess_dict['slice_scoreboard'] == True:
-            observation = self._slice_scoreboard(observation)
-
-        observation = Image.fromarray(observation)
-        observation = self.transform(observation)
 
         return observation
 
     def _init_torchvision_method(self, preprocess_dict):
         method = []
-        if preprocess_dict['gray_scale'] == True:
+        if preprocess_dict['gray_scale']:
             method.append(T.Grayscale())
 
         method.append(T.Resize((80, 80)))
@@ -54,7 +45,8 @@ class Transform(object):
         if memory is None:
             raise RuntimeError("Please use agent.insert_memory() to insert initial data.")
 
-        return observation.to(self.device) - memory
+        observation = torch.cat((observation, memory), dim = 0)
+        return observation.to(self.device)
 
     def _slice_scoreboard(self, image):
         image = image[32: 196, 8: 152, :]
@@ -64,8 +56,15 @@ class Transform(object):
         height = 80
         length = 80
         channel = 3
-        if self.preprocess_dict['gray_scale'] == True:
+        if self.preprocess_dict['gray_scale'] :
             channel = 1
+
+        if self.preprocess_dict['minus_observation']:
+            channel = 6
+       
+        if self.preprocess_dict['gray_scale'] and self.preprocess_dict['minus_observation']:
+            channel = 2
+
         return (height, length, channel)
 
     def implenmented(self):

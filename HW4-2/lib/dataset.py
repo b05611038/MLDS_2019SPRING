@@ -16,8 +16,6 @@ class ReplayBuffer(object):
         self.gamma = gamma
         self.eps = 10e-7
 
-        #one elemnet in datalist is a training pair with three elements: observation, reward, action
-        #the pair relationship -> model(observation) ==> action ==> reward
         self.episode_data = []
         self.data = []
         self.rewards = []
@@ -38,10 +36,10 @@ class ReplayBuffer(object):
         self.__insert_lock.append(False)
         return None
 
-    def insert(self, observation, action):
+    def insert(self, observation, next_observation, action):
         if self.__insert_lock[-1] != True:
             #not lock can append
-            self.episode_data[-1].append([observation.squeeze(), action])
+            self.episode_data[-1].append([observation.squeeze(), next_observation.squeeze(), action])
         else:
             raise RuntimeError('Please use new_episode() before insert new episode information.')
 
@@ -50,10 +48,12 @@ class ReplayBuffer(object):
     def insert_reward(self, reward, times, done):
         if self.__insert_lock[-1] != True:
             if self.preprocess_dict['time_decay']:
-                decay_reward = (reward * np.power(self.gamma, np.flip(np.arange(times)))).tolist()
+                decay_reward = (reward * (np.power(self.gamma, np.flip(np.arange(times))) / \
+                        np.sum(np.power(self.gamma, np.flip(np.arange(times)))))).tolist()
+
                 self.rewards[-1][len(self.rewards[-1]): ] = decay_reward
             else:
-                normal_reward = (reward * np.repeat(1.0, times)).tolist()
+                normal_reward = (reward * np.repeat(1.0, times) / np.sum(np.repeat(1.0, times))).tolist()
                 self.rewards[-1][len(self.rewards[-1]): ] = normal_reward
 
         else:
@@ -75,27 +75,34 @@ class ReplayBuffer(object):
             dataset = EpisodeSet(self.data, self.rewards, batch_size, False)
 
         dataloader = DataLoader(dataset, batch_size = batch_size * update_times, shuffle = False)
-        for iter, (obs, act, rew) in enumerate(dataloader):
-            observation = obs
-            action = act
-            reward = rew
+        observation = []
+        next_observation = []
+        action = []
+        reward = []
+        for iter, (obs, next_obs, act, rew) in enumerate(dataloader):
+            observation.append(obs)
+            next_observation.append(next_obs)
+            action.append(act)
 
-        if self.preprocess_dict['normalized']:
-            mean = torch.mean(reward, dim = 0)
-            std = torch.std(reward, dim = 0)
-            reward = (reward - mean) / (std + self.eps)
+            if self.preprocess_dict['normalized']:
+                mean = torch.mean(reward, dim = 0)
+                std = torch.std(reward, dim = 0)
+                reward = (reward - mean) / (std + self.eps)
 
-        return observation, action, reward
+            reward.append(rew)
+
+        return observation, next_observation, action, reward
 
 
 class EpisodeSet(Dataset):
-    def __init__(self, data, rewards, batch_size, priority):
+    def __init__(self, data, rewards, batch_size, times, priority):
         if len(data) != len(rewards):
             raise RuntimeError('The dataset cannot get same length data list.')
 
         self.batch_size = batch_size
+        self.times = times
         self.priority = priority
-        self.observation, self.action, self.reward = self._build(data, rewards)
+        self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards)
 
     def _build(self, data, rewards, priority):
         reward_list = []
@@ -107,9 +114,10 @@ class EpisodeSet(Dataset):
             reward_list.sort(key = lambda obj: np.abs(obj[0]))
 
         observation = None
+        next_observation = None
         action = None
         reward = None
-        for index in range(self.batch_size):
+        for index in range(self.batch_size * self.times):
             if priority:
                 select = index
             else:
@@ -122,22 +130,28 @@ class EpisodeSet(Dataset):
             else:
                 observation = torch.cat((observation, data[reward_list[select][1]][reward_list[select][2]][0]), dim = 0)
 
-            if action is None:
-                action = data[reward_list[select][1]][reward_list[select][2]][1]
+            if next_observation is None:
+                next_observation = data[reward_list[select][1]][reward_list[select][2]][1]
             else:
-                action = torch.cat((action, data[reward_list[select][1]][reward_list[select][2]][1]), axis = 0)
+                next_observation = torch.cat((next_observation, data[reward_list[select][1]][reward_list[select][2]][1]), dim = 0)
+
+            if action is None:
+                action = data[reward_list[select][1]][reward_list[select][2]][2]
+            else:
+                action = torch.cat((action, data[reward_list[select][1]][reward_list[select][2]][2]), dim = 0)
 
             if reward is None:
                 reward = np.expand_dims(reward_list[select][0])
             else:
                 reward = np.concatenate((reward, np.expand_dims(reward_list[select][0])), axis = 0)
 
-        return observation, action, reward
+        return observation, next_observation, action, reward
 
     def __getitem__(self, index):
-        return self.observation[index].detach().float(), self.action[index].detach().float(), torch.tensor(self.reward[index])
+        return self.observation[index].detach().float(), self.next_observation[index].detach().float(), \
+                torch.tensor(self.action[index]).long(), torch.tensor(self.reward[index])
 
     def __len__(self):
-        return self.batch_size
+        return self.batch_size * self.times
 
 
