@@ -58,10 +58,10 @@ if __name__ == '__main__':
     opt = init_parser(__name__)
     observation_dict = construct_observation_preprocess_dict([opt.slice_scoreboard, opt.gray_scale, opt.minus_observation])
     reward_dict = construct_reward_preprocess_dict([opt.decay_by_time, opt.reward_normalize])
-    print(observation_dict, reward_dict)
     trainer = PGTrainer(opt.model_type, opt.model_name, observation_dict, reward_dict, opt.device,
             optimizer = opt.optimizer, policy = opt.Algorithm)
     trainer.play(opt.iterations, opt.episode_size, opt.checkpoint)
+    trainer.save_config(opt)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
 
 

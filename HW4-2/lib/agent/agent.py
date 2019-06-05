@@ -10,7 +10,7 @@ from lib.agent.model import BaselineModel
 class QAgent(Agent):
     def __init__(self, name, model_select, device,
             observation_preprocess, max_memory_size, valid_action):
-        super(PGAgent, self).__init__()
+        super(QAgent, self).__init__()
 
         self.name = name
         self.device = device
@@ -46,7 +46,7 @@ class QAgent(Agent):
         return action, processed.cpu().detach()
 
     def insert_memory(self, observation):
-        self.memory = observation.to(self.device)
+        self.memory = self.transform(observation)
         return None
 
     def save(self, path):

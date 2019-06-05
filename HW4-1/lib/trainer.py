@@ -85,6 +85,10 @@ class PGTrainer(object):
         print('Training Agent:', self.model_name, 'finish.')
         return None
 
+    def save_config(self, config):
+        save_config(config, self.model_name, self.state)
+        return None
+
     def _update_policy(self, episode_size, times = 5):
         self.model = self.model.train().to(self.device)
         final_loss = []

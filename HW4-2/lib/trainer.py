@@ -16,11 +16,18 @@ from lib.agent.agent import QAgent
 
 
 class QTrainer(object):
-    def __init__(self, model_type, model_name, observation_preprocess, reward_preprocess, device, optimizer = 'Adam', policy = 'Q', env = 'Breakout-v0'):
+    def __init__(self, model_type, model_name, random_action, observation_preprocess, reward_preprocess, device,
+            optimizer = 'Adam', policy = 'Q', env = 'Breakout-v0'):
+
         self.device = self._device_setting(device)
 
         self.model_type = model_type
         self.model_name = model_name
+        self.random_action = random_action
+        if random_action:
+            self.random_probability = 1.0
+        else:
+            self.random_probability = 0.025
 
         self.env = Environment(env, None)
         self.test_env = Environment(env, None)
@@ -50,6 +57,9 @@ class QTrainer(object):
     def play(self, max_state, episode_size, batch_size, save_interval):
         self.dataset.reset_maximum(episode_size * 4)
 
+        if self.random_action:
+            self.decay = (1.0 - 0.025) / max_state
+
         state = self.state
         max_state += self.state
         record_round = (max_state - state) // 100
@@ -77,6 +87,9 @@ class QTrainer(object):
             else:
                 continue
 
+            if self.random_action:
+                self._adjust_probability()
+
             if state % save_interval == 0 and state != 0:
                 self._save_checkpoint(state)
 
@@ -85,11 +98,15 @@ class QTrainer(object):
         print('Training Agent:', self.model_name, 'finish.')
         return None
 
+    def save_config(self, config):
+        save_config(config, self.model_name, self.state)
+        return None
+
     def _update_policy(self, batch_size, times = 5):
-        self.model = self.model.train().to(self.device)
+        self.policy_net = self.policy_net.train().to(self.device)
         final_loss = []
         observation, next_observation, action, reward = self.dataset.getitem(batch_size, times)
-        for iter in range(times):
+        for iter in range(len(reward)):
             obs = observation[iter].to(self.device)
             obs_next = next_observation[iter].to(self.device)
             act = action[iter].to(self.device)
@@ -107,20 +124,37 @@ class QTrainer(object):
             if times != 1:
                 print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
 
+        if self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
+            self.target_net = copy.deepcopy(self.policy_net)
+            self.target_net = self.target_net.eval()
+
         final_loss = torch.mean(torch.tensor(final_loss)).detach().numpy()
 
         return final_loss
 
     def _calculate_loss(self, observation, next_observation, action, reward, policy_net, target_net):
-        _, target = torch.max(record, 1)
-        target = target.detach()
+        mask = self._one_hot(len(self.valid_action), action)
+        mask = mask.byte()
         if self.policy == 'Q_l1' or self.policy == 'Q_l2':
-            pass
-
-            loss = self.loss_layer()
+            last_output = policy_net(observation)
+            next_output = policy_net(next_observation)
+            predict_reward = torch.masked_select((last_output - next_output), mask = mask)
+            loss = self.loss_layer(predict_reward, reward)
             return loss
-        elif policy == 'Q_l1_target' or policy == 'Q_l2_target':
-            pass
+        elif self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
+            last_output = policy_net(observation)
+            next_output = target_net(next_observation)
+            next_output = next_output.detach()
+            predict_reward = torch.masked_select((last_output - next_output), mask = mask)
+            loss = self.loss_layer(predict_reward, reward)
+            return loss
+
+    def _adjust_probability(self):
+        self.random_probability -= self.decay
+        return None
+
+    def _one_hot(self, length, index):
+        return torch.index_select(torch.eye(length), dim = 0, index = index)
 
     def _fix_game(self, agent):
         done = False
@@ -128,7 +162,7 @@ class QTrainer(object):
         self.agent.insert_memory(observation)
         final_reward = 0
         while not done:
-            action, _pro, _output = self.agent.make_action(observation)
+            action, _pro, _output = self.agent.make_action(observation, p = self.random_probability)
             observation_next, reward, done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
@@ -153,17 +187,21 @@ class QTrainer(object):
             last_action = None
             last_reward = None
             while not done:
-                action, processed = agent.make_action(observation)
+                action, processed = agent.make_action(observation, p = self.random_probability)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
 
                 if mode == 'train' and last_observation is not None:
-                    if reward == 0:
+                    if reward == 0.0:
                         self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
                     else:
                         self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
+                        self.dataset.insert_reward(reward, mini_counter, done)
+                        mini_counter = 0
+
+                    if done:
                         self.dataset.insert_reward(reward, mini_counter, done)
                         mini_counter = 0
 

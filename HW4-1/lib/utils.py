@@ -13,8 +13,8 @@ def load_object(fname):
     with open(fname, 'rb') as in_file:
         return pickle.load(in_file)
 
-def save_config(config, model_name):
-    save_path = os.path.join('./output', model_name, model_name + '.config')
+def save_config(config, model_name, state):
+    save_path = os.path.join('./output', model_name, model_name + '_s' + str(state) + '.config')
     save_object(save_path, config)
     return None
 

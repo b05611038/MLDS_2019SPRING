@@ -2,6 +2,12 @@
 
 MLDS HW4-2
 
+## Implemented Action space exploring
+
+```
+random_action
+```
+
 ## Implemented Observation Preprocess
 
 ```
