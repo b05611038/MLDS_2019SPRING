@@ -29,7 +29,7 @@ class QAgent(Agent):
         self.model = self.model.train()
         return self.model(observation.to(self.device))
 
-    def make_action(self, observation, mode = 'argmax', p = None):
+    def make_action(self, observation, mode = 'mix', p = None):
         #return processed model observation and action
         if self.observation_preprocess['minus_observation'] == True:
             if self.memory is None:

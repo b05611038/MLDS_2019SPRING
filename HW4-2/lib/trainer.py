@@ -134,7 +134,7 @@ class QTrainer(object):
 
     def _calculate_loss(self, observation, next_observation, action, reward, policy_net, target_net):
         mask = self._one_hot(len(self.valid_action), action)
-        mask = mask.byte()
+        mask = mask.byte().to(self.device)
         if self.policy == 'Q_l1' or self.policy == 'Q_l2':
             last_output = policy_net(observation)
             next_output = policy_net(next_observation)
@@ -154,7 +154,7 @@ class QTrainer(object):
         return None
 
     def _one_hot(self, length, index):
-        return torch.index_select(torch.eye(length), dim = 0, index = index)
+        return torch.index_select(torch.eye(length), dim = 0, index = index.cpu())
 
     def _fix_game(self, agent):
         done = False
