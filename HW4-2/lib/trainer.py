@@ -162,7 +162,7 @@ class QTrainer(object):
         self.agent.insert_memory(observation)
         final_reward = 0
         while not done:
-            action, _pro, _output = self.agent.make_action(observation, p = self.random_probability)
+            action, _pro = self.agent.make_action(observation, p = self.random_probability)
             observation_next, reward, done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
