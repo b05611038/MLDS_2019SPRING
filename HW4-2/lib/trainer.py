@@ -232,7 +232,7 @@ class QTrainer(object):
                     model_list.append(file)
 
             if len(model_list) > 0:
-                model_list.sort()
+                model_list.sort(key = lambda obj: int(obj.split('_')[-1].replace('.pth', '')))
                 model_state_path = os.path.join(save_dir, model_list[-1])
                 training_state = int(model_list[-1].replace('.pth', '').split('_')[2])
 
