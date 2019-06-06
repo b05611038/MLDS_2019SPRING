@@ -12,7 +12,6 @@ class BaselineModel(nn.Module):
         self.image_size = image_size
         self.action_selection = action_selection
 
-        print(image_size)
         self.conv = nn.Sequential(
                 nn.Conv2d(image_size[2], 16 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
                 nn.ReLU(),
