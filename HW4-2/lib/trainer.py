@@ -29,6 +29,7 @@ class QTrainer(object):
         else:
             self.random_probability = 0.025
 
+        self.gamma = 0.9
         self.env = Environment(env, None)
         self.test_env = Environment(env, None)
         self.test_env.seed(0)
@@ -117,6 +118,9 @@ class QTrainer(object):
             loss = self._calculate_loss(obs, obs_next, act, rew, self.policy_net, self.target_net)
             loss.backward()
 
+            for param in self.policy_net.parameters():
+                param.grad.data.clamp_(-1, 1)
+
             self.optim.step()
 
             final_loss.append(loss.detach().cpu())
@@ -137,14 +141,14 @@ class QTrainer(object):
         mask = mask.byte().to(self.device)
         if self.policy == 'Q_l1' or self.policy == 'Q_l2':
             last_output = policy_net(observation)
-            next_output = policy_net(next_observation)
+            next_output = policy_net(next_observation) * self.gamma
             predict_reward = torch.masked_select((last_output - next_output), mask = mask)
             loss = self.loss_layer(predict_reward, reward)
             return loss
         elif self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
             last_output = policy_net(observation)
             next_output = target_net(next_observation)
-            next_output = next_output.detach()
+            next_output = (next_output * self.gamma).detach()
             predict_reward = torch.masked_select((last_output - next_output), mask = mask)
             loss = self.loss_layer(predict_reward, reward)
             return loss

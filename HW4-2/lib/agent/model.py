@@ -14,12 +14,14 @@ class BaselineModel(nn.Module):
 
         self.conv = nn.Sequential(
                 nn.Conv2d(image_size[2], 16 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
+                nn.BatchNorm2d(16 * self.groups),
                 nn.ReLU(),
-                nn.Conv2d(16 * self.groups, 32, 5, stride = 2, padding = 2, bias = False),
+                nn.Conv2d(16 * self.groups, 64, 5, stride = 2, padding = 2, bias = False),
+                nn.BatchNorm2d(64),
                 nn.ReLU()
                 )
 
-        self.linear = nn.Linear(int(32 * image_size[0] / 4 * image_size[1] / 4), action_selection)
+        self.linear = nn.Linear(int(64 * image_size[0] / 4 * image_size[1] / 4), action_selection)
 
     def forward(self, x):
         x = self.conv(x)
