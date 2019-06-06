@@ -117,9 +117,9 @@ class QTrainer(object):
             loss = self._calculate_loss(obs, obs_next, act, rew, self.policy_net, self.target_net)
             loss.backward()
 
-            final_loss.append(loss.detach().cpu())
-            
             self.optim.step()
+
+            final_loss.append(loss.detach().cpu())
 
             if times != 1:
                 print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())

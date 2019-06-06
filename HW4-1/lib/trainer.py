@@ -108,9 +108,9 @@ class PGTrainer(object):
             loss = self._calculate_loss(output, action, reward)
             loss.backward()
 
-            final_loss.append(loss.detach().cpu())
-            
             self.optim.step()
+
+            final_loss.append(loss.detach().cpu())
 
             if times != 1:
                 print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
