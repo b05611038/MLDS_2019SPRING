@@ -8,20 +8,25 @@ class BaselineModel(nn.Module):
     def __init__(self, image_size, action_selection):
         super(BaselineModel, self).__init__()
 
+        self.groups = 2
         self.image_size = image_size
         self.action_selection = action_selection
 
-        #two layer linear model
-        self.main = nn.Sequential(
-                nn.Linear(np.prod(image_size), 256, bias = False),
-                nn.Dropout(p = 0.2),
+        print(image_size)
+        self.conv = nn.Sequential(
+                nn.Conv2d(image_size[2], 16 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
                 nn.ReLU(),
-                nn.Linear(256, action_selection, bias = False),
+                nn.Conv2d(16 * self.groups, 32, 5, stride = 2, padding = 2, bias = False),
+                nn.ReLU()
                 )
 
-    def forward(self, x):
-        x = x.view(x.size(0), -1)
+        self.linear = nn.Linear(int(32 * image_size[0] / 4 * image_size[1] / 4), action_selection)
 
-        return self.main(x)
+    def forward(self, x):
+        x = self.conv(x)
+
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
+        return x
 
 

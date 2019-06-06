@@ -36,7 +36,7 @@ class Transform(object):
         if preprocess_dict['gray_scale']:
             method.append(T.Grayscale())
 
-        method.append(T.Resize((80, 80)))
+        method.append(T.Resize((84, 84)))
         method.append(T.ToTensor())
 
         return T.Compose(method)
@@ -53,8 +53,8 @@ class Transform(object):
         return image
 
     def image_size(self):
-        height = 80
-        length = 80
+        height = 84
+        length = 84
         channel = 3
         if self.preprocess_dict['gray_scale'] :
             channel = 1

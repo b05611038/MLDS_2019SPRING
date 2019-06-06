@@ -91,7 +91,7 @@ class QAgent(Agent):
 
     def _init_model(self, model_select, observation_size, action_size):
         if model_select == 'baseline':
-            model = BaselineModel(image_size = np.prod(observation_size), action_selection = action_size)
+            model = BaselineModel(image_size = observation_size, action_selection = action_size)
             model = model.to(self.device)
             return model
         else:

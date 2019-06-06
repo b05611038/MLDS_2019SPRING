@@ -202,7 +202,7 @@ class QTrainer(object):
                         mini_counter = 0
 
                     if done:
-                        self.dataset.insert_reward(reward, mini_counter, done)
+                        self.dataset.insert_reward(-1, mini_counter, done)
                         mini_counter = 0
 
                 elif mode == 'test':
