@@ -56,7 +56,7 @@ class PGAgent(Agent):
 
     def load(self, path):
         self.model.cpu()
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path, map_location = 'cpu'))
         self.model.to(self.device)
         return None
 

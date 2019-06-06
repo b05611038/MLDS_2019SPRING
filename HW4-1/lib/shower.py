@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from lib.utils import *
 from lib.environment.environment import Environment
 from lib.agent.agent import PGAgent
-from lib.visualize import VideoMaker 
+from lib.visualize import VideoMaker, PGPlotMaker 
 
 class PGShower(object):
     def __init__(self, model_type, model_name, observation_preprocess, device, env = 'Pong-v0'):
@@ -24,11 +24,15 @@ class PGShower(object):
         self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, 1, self.valid_action)
         self.models = self._get_model_checkpoint(model_name)
         self.save_path = os.path.join('./output', model_name)
-
+        self.ploter = PGPlotMaker(model_name = model_name)
 
     def show(self, sample_times):
+        print('Plot training history ...')
+        self.ploter.plot_all()
+
         print('Start make checkpoint models interact with environmnet ...')
         maker = VideoMaker()
+        
         for iter in range(len(self.models)):
             self.agent.load(self.models[iter])
             self.agent.model.eval()

@@ -43,7 +43,6 @@ if __name__ == '__main__':
     start_time = time.time()
     opt = init_parser(__name__)
     observation_dict = construct_observation_preprocess_dict([opt.slice_scoreboard, opt.gray_scale, opt.minus_observation])
-    reward_dict = construct_reward_preprocess_dict([opt.decay_by_time, opt.reward_normalize])
     shower = PGShower(opt.model_type, opt.model_name, observation_dict, opt.device)
     shower.show(opt.sample_times)
     print('All process done, cause %s seconds.' % (time.time() - start_time))
