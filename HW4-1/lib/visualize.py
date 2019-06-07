@@ -7,11 +7,14 @@ import matplotlib.pyplot as plt
 from lib.utils import *
 
 class VideoMaker(object):
-    def __init__(self):
+    def __init__(self, model_name):
+        self.model_name = model_name
+        self.save_path = self._create_dir(model_name)
         self.video = None
+        self.frames = []
 
     def insert_video(self, new):
-        if type(new) != numpy.ndarray:
+        if type(new) != np.ndarray:
             raise TypeError('Please insert numpy array video.')
 
         if len(new.shape) != 4:
@@ -25,18 +28,16 @@ class VideoMaker(object):
         return None
 
     def insert_frame(self, new):
-        if type(new) != numpy.ndarray:
+        if type(new) != np.ndarray:
             raise TypeError('Please insert numpy array frame.')
 
-        if self.video is None:
-            self.video = np.expand_dims(new, axis = 0)
-        else:
-            self.video = np.concatenate((self.video, np.expand_dims(new, axis = 0)), axis = 0)
+        self.frames.append(new)
 
         return None
 
     def make(self, path, name, delete = True):
         save_path = os.path.join(path, 'video', name + '.mp4')
+        self.video = self._build_video(self.video, self.frames)
         skvideo.io.vwrite(save_path, self.video)
         print('Video:', save_path, 'writing done.')
 
@@ -44,6 +45,24 @@ class VideoMaker(object):
             self.video = None
 
         return None
+
+    def _build_video(self, video, frames):
+        if video is None:
+            return np.asarray(frames)
+        elif video is not None and len(frames) == 0:
+            return video
+        else:
+            video = np.concatenate((video, np.asarray(frames)), axis = 0)
+            return video
+
+    def _create_dir(self, model_name):
+        video_path = os.path.join('./output', model_name, 'video')
+        if not os.path.exists(video_path):
+            os.makedirs(video_path)
+
+        print('All output video will save in', video_path)
+        return video_path
+
 
 class PGPlotMaker(object):
     def __init__(self, model_name, plot_selection = None):

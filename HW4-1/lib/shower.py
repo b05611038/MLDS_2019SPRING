@@ -31,7 +31,7 @@ class PGShower(object):
         self.ploter.plot_all()
 
         print('Start make checkpoint models interact with environmnet ...')
-        maker = VideoMaker()
+        maker = VideoMaker(self.model_name)
         
         for iter in range(len(self.models)):
             self.agent.load(self.models[iter])
@@ -52,7 +52,7 @@ class PGShower(object):
         for i in range(times):
             done = False
             observation = self.env.reset()
-            videos.append(np.expand_dims(observation, axis = 0))
+            videos.append([])
             self.agent.insert_memory(observation)
             scores.append(0.0)
 
@@ -60,10 +60,10 @@ class PGShower(object):
                 action, _processed, _model_out = self.agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 scores[i] += reward
-                videos[i] = np.concatenate((videos[i], np.expand_dims(observation_next, axis = 0)), axis = 0)
+                videos[i].append(observation)
                 observation = observation_next
 
-        return scores, videos
+        return scores, np.asarray(videos)
 
     def _max_score(self, scores):
         max_score = -1
