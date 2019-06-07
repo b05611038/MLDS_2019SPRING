@@ -141,16 +141,18 @@ class QTrainer(object):
         mask = mask.byte().to(self.device)
         if self.policy == 'Q_l1' or self.policy == 'Q_l2':
             last_output = policy_net(observation)
-            next_output = policy_net(next_observation) * self.gamma
-            predict_reward = torch.masked_select((last_output - next_output), mask = mask)
-            loss = self.loss_layer(predict_reward, reward)
+            state_action_values = torch.masked_select(last_output, mask = mask)
+            next_state_values, _ = torch.max(policy_net(next_observation), 1)
+            expected_state_action_values = (next_state_values * self.gamma) + reward
+            loss = self.loss_layer(state_action_values, expected_state_action_values)
             return loss
         elif self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
             last_output = policy_net(observation)
-            next_output = target_net(next_observation)
-            next_output = (next_output * self.gamma).detach()
-            predict_reward = torch.masked_select((last_output - next_output), mask = mask)
-            loss = self.loss_layer(predict_reward, reward)
+            state_action_values = torch.masked_select(last_output, mask = mask)
+            next_state_values, _ = torch.max(target_net(next_observation), 1)
+            next_state_values = next_state_values.detach()
+            expected_state_action_values = (next_state_values * self.gamma) + reward
+            loss = self.loss_layer(state_action_values, expected_state_action_values)
             return loss
 
     def _adjust_probability(self):
@@ -238,9 +240,9 @@ class QTrainer(object):
 
     def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.policy_net.parameters(), lr = 0.01)
+            self.optim = SGD(self.policy_net.parameters(), lr = 0.001)
         elif select == 'Adam':
-            self.optim = Adam(self.policy_net.parameters(), lr = 0.001)
+            self.optim = Adam(self.policy_net.parameters(), lr = 0.0001)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
