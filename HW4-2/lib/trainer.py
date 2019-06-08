@@ -7,7 +7,7 @@ import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.optim import SGD, Adam
+from torch.optim import SGD, Adam, RMSprop
 
 from lib.utils import *
 from lib.dataset import ReplayBuffer
@@ -29,7 +29,7 @@ class QTrainer(object):
         else:
             self.random_probability = 0.025
 
-        self.gamma = 0.9
+        self.gamma = 0.95
         self.env = Environment(env, None)
         self.test_env = Environment(env, None)
         self.test_env.seed(0)
@@ -181,8 +181,9 @@ class QTrainer(object):
         final_reward = []
         for i in range(rounds):
             done = False
-            observation = self.env.reset()
-            agent.insert_memory(observation)
+            skip_first = True
+            _ = self.env.reset()
+
             if mode == 'train':
                 self.dataset.new_episode()
 
@@ -193,6 +194,12 @@ class QTrainer(object):
             last_action = None
             last_reward = None
             while not done:
+                if skip_first:
+                    observation, _r, _d, _ = self.env.step(agent.random_action())
+                    agent.insert_memory(observation)
+                    skip_first = False
+                    continue
+
                 action, processed = agent.make_action(observation, p = self.random_probability)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
@@ -240,9 +247,11 @@ class QTrainer(object):
 
     def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.policy_net.parameters(), lr = 0.001)
+            self.optim = SGD(self.policy_net.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.policy_net.parameters(), lr = 0.0001)
+            self.optim = Adam(self.policy_net.parameters(), lr = 0.001)
+        elif select == 'RMSprop':
+            self.optim = RMSprop(self.policy_net.parameters(), lr = 0.01)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 

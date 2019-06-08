@@ -46,7 +46,7 @@ class Transform(object):
         return observation
 
     def _init_torchvision_method(self, preprocess_dict):
-        method = [T.Resize((80, 80)), T.ToTensor()]
+        method = [T.Resize((84, 84)), T.ToTensor()]
 
         return T.Compose(method)
 
@@ -65,8 +65,8 @@ class Transform(object):
         return image
 
     def image_size(self):
-        height = 80
-        length = 80
+        height = 84
+        length = 84
         channel = 3
         if self.preprocess_dict['gray_scale'] == True:
             channel = 1

@@ -259,7 +259,7 @@ class PGTrainer(object):
         if select == 'SGD':
             self.optim = SGD(self.model.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.model.parameters(), lr = 0.005)
+            self.optim = Adam(self.model.parameters(), lr = 0.001)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 

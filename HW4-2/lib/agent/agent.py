@@ -45,6 +45,9 @@ class QAgent(Agent):
 
         return action, processed.cpu().detach()
 
+    def random_action(self):
+        return self.valid_action[random.randint(0, len(self.valid_action) - 1)]
+
     def insert_memory(self, observation):
         self.memory = self.transform(observation)
         return None
@@ -55,7 +58,7 @@ class QAgent(Agent):
 
     def load(self, path):
         self.model.cpu()
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path, map_location = 'cpu'))
         self.model.to(self.device)
         return None
 

@@ -30,14 +30,14 @@ def init_parser(main):
 
     parser.add_argument('model_type', type = str, help = 'One model can choose. [baseline]')
     parser.add_argument('model_name', type = str, help = 'Model name of the model.')
-    parser.add_argument('Algorithm', type = str, help = 'Implemented Policy gradient base algorithm. [PO, PPO, PPO2]')
+    parser.add_argument('Algorithm', type = str, help = 'Implemented Q-learning base algorithm. [Q_l1, Q_l2, Q_l1_target, Q_l2_target]')
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
     parser.add_argument('--iterations', type = int, default = 20000, help = 'How many episode to train your policy net.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'The mini-batch_size wants to used in one iteration.')
-    parser.add_argument('--episode_size', type = int, default = 2, help = 'How many games to play in an episode.')
-    parser.add_argument('--checkpoint', type = int, default = 1000, help = 'The interval of saving a model checkpoint.')
+    parser.add_argument('--episode_size', type = int, default = 5, help = 'How many games to play in an episode.')
+    parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--random_action', type = str2bool, default = True,
             help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
