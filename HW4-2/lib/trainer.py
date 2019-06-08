@@ -106,7 +106,7 @@ class QTrainer(object):
     def _update_policy(self, batch_size, times = 5):
         self.policy_net = self.policy_net.train().to(self.device)
         final_loss = []
-        observation, next_observation, action, reward = self.dataset.getitem(batch_size, times)
+        observation, next_observation, action, reward = self.dataset.getitem(batch_size)
         for iter in range(len(reward)):
             obs = observation[iter].to(self.device)
             obs_next = next_observation[iter].to(self.device)

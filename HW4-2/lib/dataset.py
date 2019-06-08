@@ -67,11 +67,11 @@ class ReplayBuffer(object):
         #check the buffer is ready for training
         return True if len(self.rewards) >= self.maximum else False
 
-    def getitem(self, batch_size, update_times):
+    def getitem(self, batch_size):
         if self.preprocess_dict['prioritized_experience']:
-            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, update_times, True)
+            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, True)
         else:
-            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, update_times, False)
+            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, False)
 
         dataloader = DataLoader(dataset, batch_size = dataset.get_batch_size(), shuffle = False)
         observation = []
@@ -89,12 +89,11 @@ class ReplayBuffer(object):
 
 
 class EpisodeSet(Dataset):
-    def __init__(self, data, rewards, batch_size, times, priority):
+    def __init__(self, data, rewards, batch_size, priority):
         if len(data) != len(rewards):
             raise RuntimeError('The dataset cannot get same length data list.')
 
         self.batch_size = batch_size
-        self.times = times
         self.priority = priority
         self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards, priority)
 
@@ -115,9 +114,7 @@ class EpisodeSet(Dataset):
         action = None
         reward = None
 
-        self.data_length = self.batch_size * self.times
-        if len(reward_list) < self.data_length:
-            self.data_length = len(reward_list)
+        self.data_length = len(reward_list)
 
         for index in range(self.data_length):
             if priority:
