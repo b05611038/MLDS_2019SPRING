@@ -6,13 +6,14 @@ from torch.utils.data import Dataset, DataLoader
 
 from lib.utils import *
 
-class ReplayBuffer(object):
+class ReplayBuffer(Dataset):
     def __init__(self, env, maximum, preprocess_dict, gamma = 0.99):
         #only note the game environment
         #not the enviroment object
         self.env = env
         self.maximum = maximum
         self.preprocess_dict = preprocess_dict
+        self.length = 0
         self.gamma = gamma
         self.eps = 10e-7
 
@@ -67,37 +68,43 @@ class ReplayBuffer(object):
         #check the buffer is ready for training
         return True if len(self.rewards) >= self.maximum else False
 
-    def getitem(self, episode_size):
-        observation = None
-        action = None
-        reward = None
+    def make(self, episode_size):
+        self.observation = None
+        self.action = None
+        self.reward = None
         for i in range(episode_size):
             select = random.randint(0, self.maximum - 1)
             dataset = EpisodeSet(self.data[select], self.rewards[select])
             dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
             for iter, (obs, act, rew) in enumerate(dataloader):
-                if observation is None:
-                    observation = obs.squeeze()
+                if self.observation is None:
+                    self.observation = obs.squeeze()
                 else:
-                    observation = torch.cat((observation, obs.squeeze()), dim = 0)
+                    self.observation = torch.cat((self.observation, obs.squeeze()), dim = 0)
 
-                if action is None:
-                    action = act.squeeze()
+                if self.action is None:
+                    self.action = act.squeeze()
                 else:
-                    action = torch.cat((action, act.squeeze()), dim = 0)
+                    self.action = torch.cat((self.action, act.squeeze()), dim = 0)
 
-                if reward is None:
-                    reward = rew
+                if self.reward is None:
+                    self.reward = rew
                 else:
-                    reward = torch.cat((reward, rew), dim = 0)
+                    self.reward = torch.cat((self.reward, rew), dim = 0)
 
         if self.preprocess_dict['normalized']:
-            mean = torch.mean(reward, dim = 0)
-            std = torch.std(reward, dim = 0)
-            reward = (reward - mean) / (std + self.eps)
+            mean = torch.mean(self.reward, dim = 0)
+            std = torch.std(self.reward, dim = 0)
+            self.reward = (self.reward - mean) / (std + self.eps)
 
-        return observation.detach(), action.detach(), reward.detach()
+        self.length = self.reward.size(0)
+        return None
 
+    def __getitem__(self, index):
+        return self.observation[index].detach(), self.action[index].detach(), self.reward[index].detach()
+
+    def __len__(self):
+        return self.length
 
 class EpisodeSet(Dataset):
     def __init__(self, data, rewards):

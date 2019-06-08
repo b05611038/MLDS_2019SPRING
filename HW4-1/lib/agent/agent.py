@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import torch
 import torch.cuda as cuda
@@ -44,6 +45,9 @@ class PGAgent(Agent):
         self.insert_memory(observation)
         action = self._decode_model_output(output)
         return action, processed.cpu().detach(), output.cpu().detach()
+
+    def random_action(self):
+        return self.valid_action[random.randint(0, len(self.valid_action) - 1)]
 
     def insert_memory(self, observation):
         observation = self._preprocess(observation, mode = 'init')

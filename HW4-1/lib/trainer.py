@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.optim import SGD, Adam
+from torch.utils.data import DataLoader
 
 from lib.utils import *
 from lib.dataset import ReplayBuffer
@@ -15,7 +16,8 @@ from lib.agent.agent import PGAgent
 
 
 class PGTrainer(object):
-    def __init__(self, model_type, model_name, observation_preprocess, reward_preprocess, device, optimizer = 'Adam', policy = 'PPO', env = 'Pong-v0'):
+    def __init__(self, model_type, model_name, observation_preprocess, reward_preprocess, device, 
+            optimizer = 'Adam', policy = 'PPO', env = 'Pong-v0'):
         self.device = self._device_setting(device)
 
         self.model_type = model_type
@@ -40,7 +42,7 @@ class PGTrainer(object):
         self.policy = policy
         self._init_loss_layer(policy)
 
-    def play(self, max_state, episode_size, save_interval):
+    def play(self, max_state, episode_size, batch_size, save_interval):
         #on-policy and off-policy
         if self.policy == 'PO':
             self.dataset.reset_maximum(episode_size)
@@ -57,9 +59,9 @@ class PGTrainer(object):
             reward, reward_mean = self._collect_data(self.agent, episode_size, mode = 'train')
             if self.dataset.trainable():
                 if self.policy == 'PO':
-                    loss = self._update_policy(episode_size, times = 1)
+                    loss = self._update_policy(episode_size, batch_size, times = 1)
                 else:
-                    loss = self._update_policy(episode_size)
+                    loss = self._update_policy(episode_size, batch_size)
 
                 if state % record_round == record_round - 1:
                     _, test_reward = self._collect_data(self.agent, 10, mode = 'test')
@@ -89,27 +91,34 @@ class PGTrainer(object):
         save_config(config, self.model_name, self.state)
         return None
 
-    def _update_policy(self, episode_size, times = 5):
+    def _update_policy(self, episode_size, batch_size, times = 5):
         self.model = self.model.train().to(self.device)
         final_loss = []
         for iter in range(times):
             if self.policy == 'PO':
-                observation, action, reward = self.dataset.getitem(episode_size)
+                self.dataset.make(episode_size)
             else:
-                observation, action, reward = self.dataset.getitem(episode_size * 2)
-            observation = observation.to(self.device)
-            action = action.to(self.device)
-            reward = reward.to(self.device)
-            
-            self.optim.zero_grad()
-            
-            output = self.model(observation)
-            
-            loss = self._calculate_loss(output, action, reward)
-            loss.backward()
+                self.dataset.make(episode_size * 2)
 
-            self.optim.step()
+            loss_temp = []
+            loader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
+            for mini_iter, (observation, action, reward) in enumerate(loader):
+                observation = observation.to(self.device)
+                action = action.to(self.device)
+                reward = reward.to(self.device)
+                
+                self.optim.zero_grad()
+                
+                output = self.model(observation)
+                
+                loss = self._calculate_loss(output, action, reward)
+                loss.backward()
+                
+                self.optim.step()
 
+                loss_temp.append(loss.detach().cpu())
+
+            loss = torch.mean(torch.tensor(loss_temp))
             final_loss.append(loss.detach().cpu())
 
             if times != 1:
@@ -162,11 +171,19 @@ class PGTrainer(object):
         return important_weight.detach()
 
     def _fix_game(self, agent):
+        agent.model = self.model
         done = False
-        observation = self.test_env.reset()
-        self.agent.insert_memory(observation)
+        skip_first = True
+
+        _ = self.test_env.reset()
         final_reward = 0
         while not done:
+            if skip_first:
+                observation, _r, _d, _ = self.env.step(agent.random_action())
+                agent.insert_memory(observation)
+                skip_first = False
+                continue
+
             action, _pro, _output = self.agent.make_action(observation)
             observation_next, reward, done, _info = self.test_env.step(action)
             final_reward += reward
@@ -180,8 +197,9 @@ class PGTrainer(object):
         final_reward = []
         for i in range(rounds):
             done = False
-            observation = self.env.reset()
-            agent.insert_memory(observation)
+            skip_first = True
+            _ = self.env.reset()
+
             if mode == 'train':
                 self.dataset.new_episode()
 
@@ -189,6 +207,12 @@ class PGTrainer(object):
             mini_counter = 0
             final_reward.append(0.0)
             while not done:
+                if skip_first:
+                    observation, _r, _d, _ = self.env.step(agent.random_action())
+                    agent.insert_memory(observation)
+                    skip_first = False
+                    continue
+
                 action, processed, model_out = agent.make_action(observation)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
@@ -235,7 +259,7 @@ class PGTrainer(object):
         if select == 'SGD':
             self.optim = SGD(self.model.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.model.parameters(), lr = 0.001)
+            self.optim = Adam(self.model.parameters(), lr = 0.005)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
@@ -244,7 +268,7 @@ class PGTrainer(object):
     def _valid_action(self, env):
         if env == 'Pong-v0':
             #only need up and down
-            return [2, 3]
+            return [0, 2, 3]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
