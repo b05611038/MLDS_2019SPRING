@@ -73,7 +73,7 @@ class ReplayBuffer(object):
         else:
             dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, False)
 
-        dataloader = DataLoader(dataset, batch_size = dataset.get_batch_size(), shuffle = False)
+        dataloader = DataLoader(dataset, batch_size = batch_size, shuffle = False)
         observation = []
         next_observation = []
         action = []
@@ -82,7 +82,6 @@ class ReplayBuffer(object):
             observation.append(obs)
             next_observation.append(next_obs)
             action.append(act)
-
             reward.append(rew)
 
         return observation, next_observation, action, reward
@@ -96,9 +95,6 @@ class EpisodeSet(Dataset):
         self.batch_size = batch_size
         self.priority = priority
         self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards, priority)
-
-    def get_batch_size(self):
-        return self.data_length
 
     def _build(self, data, rewards, priority):
         reward_list = []

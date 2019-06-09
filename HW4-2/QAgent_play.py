@@ -34,7 +34,7 @@ def init_parser(main):
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
-    parser.add_argument('--iterations', type = int, default = 20000, help = 'How many episode to train your policy net.')
+    parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'The mini-batch_size wants to used in one iteration.')
     parser.add_argument('--episode_size', type = int, default = 2, help = 'How many games to play in an episode.')
     parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
@@ -42,7 +42,7 @@ def init_parser(main):
             help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')
-    parser.add_argument('--gray_scale', type = str2bool, default = True,
+    parser.add_argument('--gray_scale', type = str2bool, default = False,
             help = 'Method of image preprocess, if true, the input image would from RGB -> Gray scale.')
     parser.add_argument('--minus_observation',  type = str2bool, default = True,
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')
