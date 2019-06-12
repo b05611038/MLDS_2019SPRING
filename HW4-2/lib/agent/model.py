@@ -33,7 +33,7 @@ class BaselineModel(nn.Module):
         x = self.linear(x)
         return x
 
-class DuelModel(nn.Module):
+class DualModel(nn.Module):
     def __init__(self, image_size, action_selection):
         super(DuelModel, self).__init__()
 

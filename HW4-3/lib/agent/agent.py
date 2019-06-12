@@ -2,21 +2,23 @@ import random
 import numpy as np
 import torch
 import torch.cuda as cuda
+from torch.distributions import Categorical
 
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
-from lib.agent.model import BaselineModel, DualModel
+from lib.agent.model import Baseline
 
-class QAgent(Agent):
-    def __init__(self, name, model_select, device,
+class ACAgent(Agent):
+    def __init__(self, name, model_select, env_id, device,
             observation_preprocess, max_memory_size, valid_action):
-        super(QAgent, self).__init__()
+        super(ACAgent, self).__init__()
 
         self.name = name
+        self.env_id = env_id
         self.device = device
 
         self.observation_preprocess = observation_preprocess
-        self.transform = Transform(observation_preprocess, device)
+        self.transform = Transform(observation_preprocess, env_id, device)
 
         self.max_memory_size = max_memory_size
         self.valid_action = valid_action
@@ -46,7 +48,13 @@ class QAgent(Agent):
         return action, action_index, processed.cpu().detach()
 
     def init_action(self):
-        return 1
+        if self.env_id == 'Breakout-v0':
+            return 1
+        elif self.env_id == 'Pong-v0':
+            select = random.randint(0, len(self.valid_action) - 1)
+            return self.valid_action[select]
+        else:
+            raise NotImplementedError(self.env_id, 'is not in implemented environment.')
 
     def insert_memory(self, observation):
         self.memory = self.transform(observation)
@@ -68,21 +76,19 @@ class QAgent(Agent):
             action_index = action.cpu().detach().numpy()[0]
             action = self.valid_action[action_index]
             return action
-        elif mode == 'mix':
-            # p is rnadom probability, if 1.0 means all action is random
-            if p is None:
-                raise ValueError('Please set argument p in make_action')
-
-            if random.random() < p:
-                #means random action
-                action_index = random.randint(0, len(self.valid_action) - 1)
+        elif mode == 'sample':
+            try:
+                output = output.detach().squeeze().cpu()
+                m = Categorical(output)
+                action_index = m.sample().numpy()
                 action = self.valid_action[action_index]
-                return action, action_index
-            else:
-                _, action = torch.max(output, 1)
+                return action
+            except RuntimeError:
+                #one numbers in  probability distribution is zero
+                _, action = torch.max(output, 0)
                 action_index = action.cpu().detach().numpy()[0]
                 action = self.valid_action[action_index]
-                return action, action_index
+                return action
 
     def _preprocess(self, observation):
         return self.transform(observation, self.memory)
@@ -94,11 +100,7 @@ class QAgent(Agent):
 
     def _init_model(self, model_select, observation_size, action_size):
         if model_select == 'baseline':
-            model = BaselineModel(image_size = observation_size, action_selection = action_size)
-            model = model.to(self.device)
-            return model
-        elif model_select == 'dual':
-            model = DualModel(image_size = observation_size, action_selection = action_size)
+            model = Baseline(image_size = observation_size, action_selection = action_size)
             model = model.to(self.device)
             return model
         else:
