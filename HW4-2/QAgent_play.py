@@ -21,8 +21,7 @@ def construct_observation_preprocess_dict(args):
 
 def construct_reward_preprocess_dict(args):
     preprocess_dict = {}
-    preprocess_dict['prioritized_experience'] = args[0]
-    preprocess_dict['time_decay'] = args[1]
+    preprocess_dict['time_decay'] = args[0]
     return preprocess_dict
 
 def init_parser(main):
@@ -46,8 +45,6 @@ def init_parser(main):
             help = 'Method of image preprocess, if true, the input image would from RGB -> Gray scale.')
     parser.add_argument('--minus_observation',  type = str2bool, default = True,
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')
-    parser.add_argument('--prioritized_experience', type = str2bool, default = False,
-            help = 'Method of reward process, if true, dataset would select training pair with higher absolute reward.')
     parser.add_argument('--decay_by_time', type = str2bool, default = False,
             help = 'Method of reward process, if true, reward would decay by time step.')
 
@@ -60,7 +57,7 @@ if __name__ == '__main__':
     start_time = time.time()
     opt = init_parser(__name__)
     observation_dict = construct_observation_preprocess_dict([opt.slice_scoreboard, opt.gray_scale, opt.minus_observation])
-    reward_dict = construct_reward_preprocess_dict([opt.prioritized_experience, opt.decay_by_time])
+    reward_dict = construct_reward_preprocess_dict([opt.decay_by_time])
     trainer = QTrainer(opt.model_type, opt.model_name, opt.random_action, observation_dict, reward_dict, opt.device,
             optimizer = opt.optimizer, policy = opt.Algorithm)
     trainer.play(opt.iterations, opt.episode_size, opt.batch_size, opt.checkpoint)

@@ -68,11 +68,7 @@ class ReplayBuffer(object):
         return True if len(self.rewards) >= self.maximum else False
 
     def getitem(self, batch_size):
-        if self.preprocess_dict['prioritized_experience']:
-            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, True)
-        else:
-            dataset = EpisodeSet(self.episode_data, self.rewards, batch_size, False)
-
+        dataset = EpisodeSet(self.episode_data, self.rewards, batch_size)
         dataloader = DataLoader(dataset, batch_size = batch_size, shuffle = False)
         observation = []
         next_observation = []
@@ -88,56 +84,45 @@ class ReplayBuffer(object):
 
 
 class EpisodeSet(Dataset):
-    def __init__(self, data, rewards, batch_size, priority):
+    def __init__(self, data, rewards, batch_size):
         if len(data) != len(rewards):
             raise RuntimeError('The dataset cannot get same length data list.')
 
         self.batch_size = batch_size
-        self.priority = priority
-        self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards, priority)
+        self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards)
 
-    def _build(self, data, rewards, priority):
-        reward_list = []
-        for episode in range(len(rewards)):
-            for time_step in range(len(rewards[episode])):
-                reward_list.append([rewards[episode][time_step], episode, time_step])
-
-        if priority:
-            reward_list.sort(key = lambda obj: np.abs(obj[0]))
-
+    def _build(self, data, rewards):
         observation = None
         next_observation = None
         action = None
         reward = None
 
-        self.data_length = len(reward_list)
+        counter = 0
+        for episode in range(len(rewards)):
+            for time_step in range(len(rewards[episode])):
+                if observation is None:
+                    observation = data[episode][time_step][0].unsqueeze(0)
+                else:
+                    observation = torch.cat((observation, data[episode][time_step][0].unsqueeze(0)), dim = 0)
 
-        for index in range(self.data_length):
-            if priority:
-                select = index
-            else:
-                select = random.randint(0, len(reward_list) - 1)
+                if next_observation is None:
+                    next_observation = data[episode][time_step][1].unsqueeze(0)
+                else:
+                    next_observation = torch.cat((next_observation, data[episode][time_step][1].unsqueeze(0)), dim = 0)
 
-            if observation is None:
-                observation = data[reward_list[select][1]][reward_list[select][2]][0].unsqueeze(0)
-            else:
-                observation = torch.cat((observation, data[reward_list[select][1]][reward_list[select][2]][0].unsqueeze(0)), dim = 0)
+                if action is None:
+                    action = torch.tensor(data[episode][time_step][2]).unsqueeze(0)
+                else:
+                    action = torch.cat((action, torch.tensor(data[episode][time_step][2]).unsqueeze(0)), dim = 0)
 
-            if next_observation is None:
-                next_observation = data[reward_list[select][1]][reward_list[select][2]][1].unsqueeze(0)
-            else:
-                next_observation = torch.cat((next_observation, data[reward_list[select][1]][reward_list[select][2]][1].unsqueeze(0)), dim = 0)
+                if reward is None:
+                    reward = np.expand_dims(rewards[episode][time_step], axis = 0)
+                else:
+                    reward = np.concatenate((reward, np.expand_dims(rewards[episode][time_step], axis = 0)), axis = 0)
 
-            if action is None:
-                action = torch.tensor([data[reward_list[select][1]][reward_list[select][2]][2]])
-            else:
-                action = torch.cat((action, torch.tensor([data[reward_list[select][1]][reward_list[select][2]][2]])), dim = 0)
+                counter += 1
 
-            if reward is None:
-                reward = np.expand_dims(reward_list[select][0], axis = 0)
-            else:
-                reward = np.concatenate((reward, np.expand_dims(reward_list[select][0], axis = 0)), axis = 0)
-
+        self.data_length = counter
         return observation, next_observation, action, reward
 
     def __getitem__(self, index):

@@ -19,7 +19,7 @@ minus_observation
 ## Implemented Reward Preprocess
 
 ```
-prioritized_experience
+time_decay
 ```
 
 ## Implmented Q-Learning base Algorithm

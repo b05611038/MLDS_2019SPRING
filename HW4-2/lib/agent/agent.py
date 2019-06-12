@@ -5,7 +5,7 @@ import torch.cuda as cuda
 
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
-from lib.agent.model import BaselineModel
+from lib.agent.model import BaselineModel, DuelModel
 
 class QAgent(Agent):
     def __init__(self, name, model_select, device,
@@ -41,12 +41,12 @@ class QAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output = self.model(input_processed)
         self.insert_memory(observation)
-        action = self._decode_model_output(output, mode, p)
+        action, action_index = self._decode_model_output(output, mode, p)
 
-        return action, processed.cpu().detach()
+        return action, action_index, processed.cpu().detach()
 
-    def random_action(self):
-        return self.valid_action[random.randint(0, len(self.valid_action) - 1)]
+    def init_action(self):
+        return 1
 
     def insert_memory(self, observation):
         self.memory = self.transform(observation)
@@ -77,12 +77,12 @@ class QAgent(Agent):
                 #means random action
                 action_index = random.randint(0, len(self.valid_action) - 1)
                 action = self.valid_action[action_index]
-                return action
+                return action, action_index
             else:
                 _, action = torch.max(output, 1)
                 action_index = action.cpu().detach().numpy()[0]
                 action = self.valid_action[action_index]
-                return action
+                return action, action_index
 
     def _preprocess(self, observation):
         return self.transform(observation, self.memory)
@@ -95,6 +95,10 @@ class QAgent(Agent):
     def _init_model(self, model_select, observation_size, action_size):
         if model_select == 'baseline':
             model = BaselineModel(image_size = observation_size, action_selection = action_size)
+            model = model.to(self.device)
+            return model
+        elif model_select == 'duel':
+            model = DuelModel(image_size = observation_size, action_selection = action_size)
             model = model.to(self.device)
             return model
         else:

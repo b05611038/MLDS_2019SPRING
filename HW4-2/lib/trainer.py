@@ -164,11 +164,17 @@ class QTrainer(object):
 
     def _fix_game(self, agent):
         done = False
+        skip_first = True
         observation = self.test_env.reset()
-        self.agent.insert_memory(observation)
         final_reward = 0
         while not done:
-            action, _pro = self.agent.make_action(observation, p = self.random_probability)
+            if skip_first:
+                observation, _r, _d, _ = self.env.step(agent.init_action())
+                agent.insert_memory(observation)
+                skip_first = False
+                continue
+
+            action, _action_index, _pro = self.agent.make_action(observation, p = self.random_probability)
             observation_next, reward, done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
@@ -195,12 +201,12 @@ class QTrainer(object):
             last_reward = None
             while not done:
                 if skip_first:
-                    observation, _r, _d, _ = self.env.step(agent.random_action())
+                    observation, _r, _d, _ = self.env.step(agent.init_action())
                     agent.insert_memory(observation)
                     skip_first = False
                     continue
 
-                action, processed = agent.make_action(observation, p = self.random_probability)
+                action, action_index, processed = agent.make_action(observation, p = self.random_probability)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
 
@@ -222,7 +228,7 @@ class QTrainer(object):
                     pass
 
                 last_observation = processed
-                last_action = action
+                last_action = action_index
                 last_reward = reward
 
                 observation = observation_next
