@@ -31,7 +31,7 @@ class ACAgent(Agent):
         self.model = self.model.train()
         return self.model(observation.to(self.device))
 
-    def make_action(self, observation, mode = 'mix', p = None):
+    def make_action(self, observation, mode = 'sample', p = None):
         #return processed model observation and action
         if self.observation_preprocess['minus_observation'] == True:
             if self.memory is None:
@@ -41,7 +41,7 @@ class ACAgent(Agent):
         processed = self._preprocess(observation)
         processed = processed.to(self.device)
         input_processed = processed.unsqueeze(0)
-        output = self.model(input_processed)
+        output, _ = self.model(input_processed)
         self.insert_memory(observation)
         action, action_index = self._decode_model_output(output, mode, p)
 
@@ -72,23 +72,41 @@ class ACAgent(Agent):
 
     def _decode_model_output(self, output, mode, p):
         if mode == 'argmax':
-            _, action = torch.max(output, 1)
-            action_index = action.cpu().detach().numpy()[0]
-            action = self.valid_action[action_index]
-            return action
-        elif mode == 'sample':
-            try:
-                output = output.detach().squeeze().cpu()
-                m = Categorical(output)
-                action_index = m.sample().numpy()
-                action = self.valid_action[action_index]
-                return action
-            except RuntimeError:
-                #one numbers in  probability distribution is zero
-                _, action = torch.max(output, 0)
+            if p is None:
+                _, action = torch.max(output, 1)
                 action_index = action.cpu().detach().numpy()[0]
-                action = self.valid_action[action_index]
-                return action
+                return self.valid_action[action_index], action_index
+            else:
+                if random.random() < p:
+                    select = random.randint(0, len(self.valid_action))
+                    return self.valid_action[select], action_index
+                else:
+                    _, action = torch.max(output, 1)
+                    action_index = action.cpu().detach().numpy()[0]
+                    return self.valid_action[action_index], action_index
+        elif mode == 'sample':
+            if p is None:
+                try:
+                    output = output.detach().squeeze().cpu()
+                    m = Categorical(output)
+                    action_index = m.sample().numpy()
+                    return self.valid_action[action_index], action_index
+                except RuntimeError:
+                    #one numbers in  probability distribution is zero
+                    _, action = torch.max(output, 0)
+                    action_index = action.cpu().detach().numpy()[0]
+                    action = self.valid_action[action_index], action_index
+                    return action
+            else:
+                if random.random() < p:
+                    select = random.randint(0, len(self.valid_action))
+                    return self.valid_action[select], action_index
+                else:
+                    try:
+                        output = output.detach().squeeze().cpu()
+                        m = Categorical(output)
+                        action_index = m.sample().numpy()
+                        return self.valid_action[action_index], action_index
 
     def _preprocess(self, observation):
         return self.transform(observation, self.memory)

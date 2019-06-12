@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from lib.utils import *
-from lib.environment.environment import Environment
+from lib.environment.environment import TestEnvironment
 from lib.agent.agent import QAgent
 from lib.visualize import VideoMaker, QPlotMaker 
 
@@ -18,7 +18,7 @@ class QShower(object):
         self.model_type = model_type
         self.model_name = model_name
 
-        self.env = Environment(env, None)
+        self.env = TestEnvironment(env)
         self.observation_preprocess = observation_preprocess
         self.valid_action = self._valid_action(env)
         self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, 1, self.valid_action)
@@ -50,7 +50,7 @@ class QShower(object):
         scores = []
         videos = []
         for i in range(times):
-            done = False
+            true_done = False
             observation = self.env.reset()
             videos.append([])
             self.agent.insert_memory(observation)
@@ -58,7 +58,7 @@ class QShower(object):
 
             while not done:
                 action, _processed, _model_out = self.agent.make_action(observation)
-                observation_next, reward, done, _ = self.env.step(action)
+                observation_next, reward, done, true_done, _ = self.env.step(action)
                 scores[i] += reward
                 videos[i].append(observation)
                 observation = observation_next

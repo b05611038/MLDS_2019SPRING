@@ -25,6 +25,8 @@ class Baseline(nn.Module):
                 )
 
         self.actor = nn.Linear(64 * 9 * 9, action_selection)
+        self.softmax = nn.Softmax(dim = -1)
+
         self.critic = nn.Linear(64 * 9 * 9, 1)
 
     def forward(self, x):
@@ -32,7 +34,8 @@ class Baseline(nn.Module):
 
         x = x.view(x.size(0), -1)
         actor = self.actor(x)
-        critic = self.critic(x)
-        return actor, critic
+        actor = self.softmax(actor)
+        state_value = self.critic(x)
+        return actor, state_value 
 
 
