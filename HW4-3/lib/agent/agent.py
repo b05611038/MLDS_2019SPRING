@@ -45,7 +45,7 @@ class ACAgent(Agent):
         self.insert_memory(observation)
         action, action_index = self._decode_model_output(output, mode, p)
 
-        return action, action_index, processed.cpu().detach()
+        return action, action_index, output, processed.cpu().detach()
 
     def init_action(self):
         if self.env_id == 'Breakout-v0':
@@ -95,8 +95,7 @@ class ACAgent(Agent):
                     #one numbers in  probability distribution is zero
                     _, action = torch.max(output, 0)
                     action_index = action.cpu().detach().numpy()[0]
-                    action = self.valid_action[action_index], action_index
-                    return action
+                    return self.valid_action[action_index], action_index
             else:
                 if random.random() < p:
                     select = random.randint(0, len(self.valid_action))
@@ -106,6 +105,10 @@ class ACAgent(Agent):
                         output = output.detach().squeeze().cpu()
                         m = Categorical(output)
                         action_index = m.sample().numpy()
+                        return self.valid_action[action_index], action_index
+                    except RuntimeError:
+                        _, action = torch.max(output, 0)
+                        action_index = action.cpu().detach().numpy()[0]
                         return self.valid_action[action_index], action_index
 
     def _preprocess(self, observation):

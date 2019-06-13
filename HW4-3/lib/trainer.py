@@ -16,7 +16,7 @@ from lib.environment.environment import Environment, TestEnvironment
 from lib.agent.agent import ACAgent
 
 
-class AVTrainer(object):
+class ACTrainer(object):
     def __init__(self,  model_type, model_name, random_action, observation_preprocess, reward_preprocess, device,
             gamma = 0.99, optimizer = 'Adam', policy = 'A2C_l1', env = 'Pong-v0'):
 
@@ -31,6 +31,7 @@ class AVTrainer(object):
             self.random_probability = None
 
 
+        self.env_id = env
         self.env = Environment(env, None)
         self.test_env = TestEnvironment(env)
         self.test_env.seed(0)
@@ -44,6 +45,7 @@ class AVTrainer(object):
         self._select_optimizer(optimizer, policy)
 
         self.eps = 10e-7
+        self.gamma = gamma
 
         self.reward_preprocess = reward_preprocess
         self.dataset = ReplayBuffer(env = env, maximum = 1, preprocess_dict = reward_preprocess)
@@ -53,7 +55,7 @@ class AVTrainer(object):
 
     def play(self, max_state, episode_size, batch_size, save_interval):
         #on-policy and off-policy
-        if self.policy == 'PO':
+        if self.policy_actor == 'A2C':
             self.dataset.reset_maximum(episode_size)
         else:
             self.dataset.reset_maximum(episode_size * 4)
@@ -64,7 +66,7 @@ class AVTrainer(object):
 
         while(state < max_state):
             start_time = time.time()
-            self.agent.model = self.model
+            self.agent.model = self.policy_net
             reward, reward_mean = self._collect_data(self.agent, episode_size, mode = 'train')
             if self.dataset.trainable():
                 if self.policy_actor == 'A2C':
@@ -111,15 +113,18 @@ class AVTrainer(object):
 
             loss_temp = []
             loader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
-            for mini_iter, (observation, next_observation, action, reward) in enumerate(loader):
+            for mini_iter, (observation, next_observation, record, reward, state_value) in enumerate(loader):
                 observation = observation.to(self.device)
                 next_observation = next_observation.to(self.device)
-                action = action.to(self.device)
+                record = record.to(self.device)
                 reward = reward.to(self.device)
+                state_value = state_value.to(self.device)
             
                 self.optim.zero_grad()
 
-                loss = self._calculate_loss(obs, obs_next, act, rew, self.policy_net, self.target_net)
+                loss = self._calculate_loss(observation, next_observation, record, reward, state_value, 
+                        self.policy_net, self.target_net)
+
                 loss.backward()
 
                 self.optim.step()
@@ -139,8 +144,36 @@ class AVTrainer(object):
 
         return final_loss
 
-    def _calculate_loss(self, observation, next_observation, action, reward, policy_net, target_net):
-        pass
+    def _calculate_loss(self, observation, next_observation, record, reward, state_values, policy_net, target_net):
+        action, predicted_state_values = policy_net(observation)
+        _, predicted_next_state_values = target_net(next_observation)
+
+        _, target = torch.max(record, 1)
+        target = target.detach()
+        if self.policy_actor == 'A2C':
+            action = torch.log(action + self.eps)
+            actor_loss = self.actor_loss_layer(action, target)
+            actor_loss = torch.mean(actor_loss * reward, dim = 0)
+        elif self.policy_actor == 'A2C_PPO':
+            important_weight = self._important_weight(record, action, target)
+            kl_div = F.kl_div(record, action)
+            self._dynamic_beta(kl_div)
+            kl_div = self.beta * kl_div
+            action = torch.log(action + self.eps)
+            actor_loss = self.actor_loss_layer(action, target)
+            actor_loss = torch.mean(actor_loss * reward * important_weight, dim = 0) + kl_div
+        elif self.policy_actor == 'A2C_PPO2':
+            important_weight = self._important_weight(record, action, target)
+            important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
+            action = torch.log(action + self.eps)
+            actor_loss = self.actor_loss_layer(action, target)
+            actor_loss = torch.mean(actor_loss * reward * important_weight, dim = 0)
+
+        predicted_next_state_values = predicted_next_state_values.detach()
+        expected_state_action_values = (predicted_next_state_values * self.gamma) + state_values
+        critic_loss = self.critic_loss_layer(predicted_state_values, expected_state_action_values)
+
+        return actor_loss + critic_loss
 
     def _important_weight(self, record, action, target):
         important_weight = action / record + self.eps
@@ -175,7 +208,7 @@ class AVTrainer(object):
                 skip_first = False
                 continue
 
-            action, _action_index, _pro = self.agent.make_action(observation, p = self.random_probability)
+            action, _action_index, _act_pro, _pre = self.agent.make_action(observation, p = self.random_probability)
             observation_next, reward, done, true_done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
@@ -207,7 +240,7 @@ class AVTrainer(object):
                     skip_first = False
                     continue
 
-                action, action_index, processed = agent.make_action(observation, p = self.random_probability)
+                action, action_index, act_pro, processed = agent.make_action(observation, p = self.random_probability)
                 observation_next, reward, done, _ = self.env.step(action)
                 final_reward[i] += reward
 
@@ -215,13 +248,18 @@ class AVTrainer(object):
                     if reward == 0.0:
                         self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
-                    else:
+                    elif reward != 0 and self.env_id == 'Pong-v0':
+                        self.dataset.insert(last_observation, processed, last_action)
+                        mini_counter += 1
+                        self.dataset.insert_reward(reward, mini_counter, done)
+                        mini_counter = 0
+                    elif reward != 0 and self.env_id == 'Breakout-v0':
                         self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
                         self.dataset.insert_reward(reward, mini_counter, done)
                         mini_counter = 0
 
-                    if done:
+                    if done and self.env_id == 'Breakout-v0':
                         self.dataset.insert_reward(-1, mini_counter, done)
                         mini_counter = 0
 
@@ -229,7 +267,7 @@ class AVTrainer(object):
                     pass
 
                 last_observation = processed
-                last_action = action_index
+                last_action = act_pro
                 last_reward = reward
 
                 observation = observation_next
@@ -246,23 +284,23 @@ class AVTrainer(object):
 
     def _init_loss_layer(self, policy):
         critic = policy.split('_')[-1]
-        actor = policy.replace('_' + cirtic, '')
+        actor = policy.replace('_' + critic, '')
         if actor == 'A2C':
-            self.actor_loss = nn.NLLLoss(reduction = 'none')
+            self.actor_loss_layer = nn.NLLLoss(reduction = 'none')
         elif actor == 'A2C_PPO':
-            self.actor_loss = nn.NLLLoss(reduction = 'none')
+            self.actor_loss_layer = nn.NLLLoss(reduction = 'none')
             self.beta = 1.0
             self.kl_target = 0.01
         elif actor == 'A2C_PPO2':
-            self.actor_loss = nn.NLLLoss(reduction = 'none')
+            self.actor_loss_layer = nn.NLLLoss(reduction = 'none')
             self.clip_value = 0.2
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
         if critic == 'l1':
-            self.critic_loss = nn.L1Loss()
+            self.critic_loss_layer = nn.L1Loss()
         elif critic == 'l2':
-            self.critic_loss = nn.MSELoss()
+            self.critic_loss_layer = nn.MSELoss()
         else:
             raise ValueError(self.policy, 'not in implemented policy gradient based method.')
 
@@ -285,7 +323,7 @@ class AVTrainer(object):
             #only need up and down
             return [2, 3]
         elif env == 'Breakout-v0':
-            return [0, 1, 2, 3]
+            return [2, 3]
         else:
             raise NotImplementedError(env, 'is not in the implemented environment.') 
 
