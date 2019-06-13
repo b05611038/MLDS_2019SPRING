@@ -9,6 +9,7 @@ class TestEnvironment(object):
     def __init__(self, env_name, test = True):
         self.env = gym.make(env_name)
 
+        self.env_name = env_name
         self.lives = 0
         self.action_space = self.env.action_space
         self.observation_space = self.env.observation_space
@@ -27,11 +28,14 @@ class TestEnvironment(object):
         observation, reward, done, info = self.env.step(action)
         true_done = True if done else False
 
-        lives = self.env.unwrapped.ale.lives()
-        if lives < self.lives and lives > 0:
-            done = True
+        if self.env_name == 'Breakout-v0':
+            lives = self.env.unwrapped.ale.lives()
+            if lives < self.lives and lives > 0:
+                done = True
 
-        self.lives = lives
+            self.lives = lives
+        elif self.env_name == 'Pong-v0':
+            pass
 
         return np.array(observation).astype('uint8'), reward, done, true_done, info
 

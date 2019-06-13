@@ -203,7 +203,7 @@ class ACTrainer(object):
         final_reward = 0
         while not true_done:
             if skip_first:
-                observation, _r, _d, _t, _ = self.env.step(agent.init_action())
+                observation, _r, _d, _t, _ = self.test_env.step(agent.init_action())
                 agent.insert_memory(observation)
                 skip_first = False
                 continue
