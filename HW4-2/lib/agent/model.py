@@ -35,7 +35,7 @@ class BaselineModel(nn.Module):
 
 class DualModel(nn.Module):
     def __init__(self, image_size, action_selection):
-        super(DuelModel, self).__init__()
+        super(DualModel, self).__init__()
 
         self.groups = 2
         self.image_size = image_size
