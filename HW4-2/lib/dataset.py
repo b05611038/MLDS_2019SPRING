@@ -49,7 +49,7 @@ class ReplayBuffer(Dataset):
         return True if len(self.rewards) > (self.maximum // 4) else False
 
     def __getitem__(self, index):
-        select = random.randint(0, len(self.rewards) - 1)
+        select = random.randint(0, len(self.data) - 1)
         return self.data[select][0].squeeze(0).float().detach(), self.data[select][1].squeeze(0).float().detach(), \
                 torch.tensor(self.data[select][2]).long(), torch.tensor(self.rewards[select]).float()
 
