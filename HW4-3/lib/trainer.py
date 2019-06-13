@@ -60,6 +60,9 @@ class ACTrainer(object):
         else:
             self.dataset.reset_maximum(episode_size * 4)
 
+        if self.random_action:
+            self.decay = (1.0 - 0.025) / (max_state / 5)
+
         state = self.state
         max_state += self.state
         record_round = (max_state - state) // 100
@@ -113,16 +116,15 @@ class ACTrainer(object):
 
             loss_temp = []
             loader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
-            for mini_iter, (observation, next_observation, record, reward, state_value) in enumerate(loader):
+            for mini_iter, (observation, next_observation, record, reward) in enumerate(loader):
                 observation = observation.to(self.device)
                 next_observation = next_observation.to(self.device)
                 record = record.to(self.device)
                 reward = reward.to(self.device)
-                state_value = state_value.to(self.device)
             
                 self.optim.zero_grad()
 
-                loss = self._calculate_loss(observation, next_observation, record, reward, state_value, 
+                loss = self._calculate_loss(observation, next_observation, record, reward, 
                         self.policy_net, self.target_net)
 
                 loss.backward()
@@ -144,16 +146,21 @@ class ACTrainer(object):
 
         return final_loss
 
-    def _calculate_loss(self, observation, next_observation, record, reward, state_values, policy_net, target_net):
+    def _calculate_loss(self, observation, next_observation, record, reward, policy_net, target_net):
         action, predicted_state_values = policy_net(observation)
         _, predicted_next_state_values = target_net(next_observation)
 
+        predicted_next_state_values = predicted_next_state_values.detach()
+        expected_state_action_values = (predicted_next_state_values * self.gamma) + reward
+        critic_loss = self.critic_loss_layer(predicted_state_values, expected_state_action_values)
+
         _, target = torch.max(record, 1)
         target = target.detach()
+        advantage = reward + predicted_next_state_values.squeeze().detach() - predicted_state_values.squeeze()
         if self.policy_actor == 'A2C':
             action = torch.log(action + self.eps)
             actor_loss = self.actor_loss_layer(action, target)
-            actor_loss = torch.mean(actor_loss * reward, dim = 0)
+            actor_loss = torch.mean(actor_loss * advantage, dim = 0)
         elif self.policy_actor == 'A2C_PPO':
             important_weight = self._important_weight(record, action, target)
             kl_div = F.kl_div(record, action)
@@ -161,17 +168,13 @@ class ACTrainer(object):
             kl_div = self.beta * kl_div
             action = torch.log(action + self.eps)
             actor_loss = self.actor_loss_layer(action, target)
-            actor_loss = torch.mean(actor_loss * reward * important_weight, dim = 0) + kl_div
+            actor_loss = torch.mean(actor_loss * advantage * important_weight, dim = 0) + kl_div
         elif self.policy_actor == 'A2C_PPO2':
             important_weight = self._important_weight(record, action, target)
             important_weight = torch.clamp(important_weight, 1.0 - self.clip_value, 1.0 + self.clip_value)
             action = torch.log(action + self.eps)
             actor_loss = self.actor_loss_layer(action, target)
-            actor_loss = torch.mean(actor_loss * reward * important_weight, dim = 0)
-
-        predicted_next_state_values = predicted_next_state_values.detach()
-        expected_state_action_values = (predicted_next_state_values * self.gamma) + state_values
-        critic_loss = self.critic_loss_layer(predicted_state_values, expected_state_action_values)
+            actor_loss = torch.mean(actor_loss * advantage * important_weight, dim = 0)
 
         return actor_loss + critic_loss
 
@@ -211,6 +214,7 @@ class ACTrainer(object):
             action, _action_index, _act_pro, _pre = self.agent.make_action(observation, p = self.random_probability)
             observation_next, reward, done, true_done, _info = self.test_env.step(action)
             final_reward += reward
+
             observation = observation_next
 
         return final_reward
@@ -271,6 +275,7 @@ class ACTrainer(object):
                 last_reward = reward
 
                 observation = observation_next
+
                 time_step += 1
 
             if i % 5 == 4:
@@ -308,11 +313,11 @@ class ACTrainer(object):
 
     def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.policy_net.parameters(), lr = 0.05)
+            self.optim = SGD(self.policy_net.parameters(), lr = 0.01)
         elif select == 'Adam':
-            self.optim = Adam(self.policy_net.parameters(), lr = 5e-3)
+            self.optim = Adam(self.policy_net.parameters(), lr = 1e-4)
         elif select == 'RMSprop':
-            self.optim = RMSprop(self.policy_net.parameters(), lr = 5e-3)
+            self.optim = RMSprop(self.policy_net.parameters(), lr = 1e-4)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 

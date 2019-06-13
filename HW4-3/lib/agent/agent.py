@@ -45,7 +45,7 @@ class ACAgent(Agent):
         self.insert_memory(observation)
         action, action_index = self._decode_model_output(output, mode, p)
 
-        return action, action_index, output, processed.cpu().detach()
+        return action, action_index, output.detach().cpu(), processed.detach().cpu()
 
     def init_action(self):
         if self.env_id == 'Breakout-v0':
@@ -98,8 +98,8 @@ class ACAgent(Agent):
                     return self.valid_action[action_index], action_index
             else:
                 if random.random() < p:
-                    select = random.randint(0, len(self.valid_action))
-                    return self.valid_action[select], action_index
+                    select = random.randint(0, len(self.valid_action) - 1)
+                    return self.valid_action[select], select
                 else:
                     try:
                         output = output.detach().squeeze().cpu()

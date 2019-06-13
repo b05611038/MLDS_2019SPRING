@@ -77,7 +77,6 @@ class ReplayBuffer(Dataset):
         self.next_observation = None
         self.action = None
         self.reward = None
-        self.state_value = None
         for i in range(episode_size):
             select = random.randint(0, self.maximum - 1)
             dataset = EpisodeSet(self.episode_data[select], self.rewards[select])
@@ -103,8 +102,6 @@ class ReplayBuffer(Dataset):
                 else:
                     self.reward = torch.cat((self.reward, rew), dim = 0)
 
-            self.state_value = copy.deepcopy(self.reward)
-
         if self.preprocess_dict['normalized']:
             mean = torch.mean(self.reward, dim = 0)
             std = torch.std(self.reward, dim = 0)
@@ -115,7 +112,7 @@ class ReplayBuffer(Dataset):
 
     def __getitem__(self, index):
         return self.observation[index].detach(), self.next_observation[index].detach(), \
-                self.action[index].detach(), self.reward[index].detach(), self.state_value[index].detach()
+                self.action[index].detach(), self.reward[index].detach()
 
     def __len__(self):
         return self.length
