@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from lib.utils import *
 
-class ReplayBuffer(object):
+class ReplayBuffer(Dataset):
     def __init__(self, env, maximum, preprocess_dict, gamma = 0.99):
         #only note the game environment
         #not the enviroment object
@@ -16,120 +16,44 @@ class ReplayBuffer(object):
         self.gamma = gamma
         self.eps = 10e-7
 
-        self.episode_data = []
+        self.data = []
         self.rewards = []
-        self.__insert_lock = []
 
     def reset_maximum(self, new):
         self.maximum = new
         return None
 
-    def new_episode(self):
-        if len(self.rewards) > self.maximum:
-            self.episode_data = self.episode_data[1: ]
-            self.rewards = self.rewards[1: ]
-            self.__insert_lock = self.__insert_lock[1: ]
-
-        self.episode_data.append([])
-        self.rewards.append([])
-        self.__insert_lock.append(False)
-        return None
-
     def insert(self, observation, next_observation, action):
-        if self.__insert_lock[-1] != True:
-            #not lock can append
-            self.episode_data[-1].append([observation, next_observation, action])
-        else:
-            raise RuntimeError('Please use new_episode() before insert new episode information.')
+        if len(self.data) > self.maximum:
+            self.data = self.data[1: ]
+            self.rewards = self.rewards[1: ]
+
+        self.data.append([observation, next_observation, action])
 
         return None
 
     def insert_reward(self, reward, times, done):
-        if self.__insert_lock[-1] != True:
-            if self.preprocess_dict['time_decay']:
-                decay_reward = (reward * (np.power(self.gamma, np.flip(np.arange(times))) / \
-                        np.sum(np.power(self.gamma, np.flip(np.arange(times)))))).tolist()
+        if self.preprocess_dict['time_decay']:
+            decay_reward = (reward * (np.power(self.gamma, np.flip(np.arange(times))) / \
+                    np.sum(np.power(self.gamma, np.flip(np.arange(times)))))).tolist()
 
-                self.rewards[-1][len(self.rewards[-1]): ] = decay_reward
-            else:
-                normal_reward = (reward * np.repeat(1.0, times) / np.sum(np.repeat(1.0, times))).tolist()
-                self.rewards[-1][len(self.rewards[-1]): ] = normal_reward
-
+            self.rewards[len(self.rewards): ] = decay_reward
         else:
-            raise RuntimeError('Please use new_episode() before insert new episode information.')
-
-        if done:
-            self.__insert_lock[-1] = True
+            normal_reward = (reward * np.repeat(1.0, times) / np.sum(np.repeat(1.0, times))).tolist()
+            self.rewards[len(self.rewards): ] = normal_reward
 
         return None
 
     def trainable(self):
         #check the buffer is ready for training
-        return True if len(self.rewards) >= self.maximum else False
-
-    def getitem(self, batch_size):
-        dataset = EpisodeSet(self.episode_data, self.rewards, batch_size)
-        dataloader = DataLoader(dataset, batch_size = batch_size, shuffle = False)
-        observation = []
-        next_observation = []
-        action = []
-        reward = []
-        for iter, (obs, next_obs, act, rew) in enumerate(dataloader):
-            observation.append(obs)
-            next_observation.append(next_obs)
-            action.append(act)
-            reward.append(rew)
-
-        return observation, next_observation, action, reward
-
-
-class EpisodeSet(Dataset):
-    def __init__(self, data, rewards, batch_size):
-        if len(data) != len(rewards):
-            raise RuntimeError('The dataset cannot get same length data list.')
-
-        self.batch_size = batch_size
-        self.observation, self.next_observation, self.action, self.reward = self._build(data, rewards)
-
-    def _build(self, data, rewards):
-        observation = None
-        next_observation = None
-        action = None
-        reward = None
-
-        counter = 0
-        for episode in range(len(rewards)):
-            for time_step in range(len(rewards[episode])):
-                if observation is None:
-                    observation = data[episode][time_step][0].unsqueeze(0)
-                else:
-                    observation = torch.cat((observation, data[episode][time_step][0].unsqueeze(0)), dim = 0)
-
-                if next_observation is None:
-                    next_observation = data[episode][time_step][1].unsqueeze(0)
-                else:
-                    next_observation = torch.cat((next_observation, data[episode][time_step][1].unsqueeze(0)), dim = 0)
-
-                if action is None:
-                    action = torch.tensor(data[episode][time_step][2]).unsqueeze(0)
-                else:
-                    action = torch.cat((action, torch.tensor(data[episode][time_step][2]).unsqueeze(0)), dim = 0)
-
-                if reward is None:
-                    reward = np.expand_dims(rewards[episode][time_step], axis = 0)
-                else:
-                    reward = np.concatenate((reward, np.expand_dims(rewards[episode][time_step], axis = 0)), axis = 0)
-
-                counter += 1
-
-        self.data_length = counter
-        return observation, next_observation, action, reward
+        return True if len(self.rewards) > (self.maximum // 4) else False
 
     def __getitem__(self, index):
-        return self.observation[index].detach().float(), self.next_observation[index].detach().float(), \
-                self.action[index].detach().long(), torch.tensor(self.reward[index])
+        select = random.randint(0, len(self.rewards) - 1)
+        return self.data[select][0].squeeze(0).float().detach(), self.data[select][1].squeeze(0).float().detach(), \
+                torch.tensor(self.data[select][2]).long(), torch.tensor(self.rewards[select]).float()
 
     def __len__(self):
-        return self.data_length
+        return self.maximum // 8
 
 

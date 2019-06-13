@@ -7,6 +7,7 @@ import torch.cuda as cuda
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch.utils.data import DataLoader
 from torch.optim import SGD, Adam, RMSprop
 
 from lib.utils import *
@@ -29,7 +30,7 @@ class QTrainer(object):
         else:
             self.random_probability = 0.025
 
-        self.gamma = 0.95
+        self.gamma = 0.99
         self.env = Environment(env, None)
         self.test_env = Environment(env, None)
         self.test_env.seed(0)
@@ -50,14 +51,12 @@ class QTrainer(object):
         self.eps = 10e-7
 
         self.reward_preprocess = reward_preprocess
-        self.dataset = ReplayBuffer(env = env, maximum = 1, preprocess_dict = reward_preprocess)
+        self.dataset = ReplayBuffer(env = env, maximum = 10000, preprocess_dict = reward_preprocess)
         self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward', 'fix_seed_game_reward'])
         self.policy = policy
         self._init_loss_layer(policy)
 
     def play(self, max_state, episode_size, batch_size, save_interval):
-        self.dataset.reset_maximum(episode_size * 4)
-
         if self.random_action:
             self.decay = (1.0 - 0.025) / max_state
 
@@ -86,6 +85,7 @@ class QTrainer(object):
 
                 state += 1
             else:
+                print(len(self.dataset.rewards), len(self.dataset.data))
                 continue
 
             if self.random_action:
@@ -103,19 +103,19 @@ class QTrainer(object):
         save_config(config, self.model_name, self.state)
         return None
 
-    def _update_policy(self, batch_size, times = 5):
+    def _update_policy(self, batch_size):
         self.policy_net = self.policy_net.train().to(self.device)
         final_loss = []
-        observation, next_observation, action, reward = self.dataset.getitem(batch_size)
-        for iter in range(len(reward)):
-            obs = observation[iter].to(self.device)
-            obs_next = next_observation[iter].to(self.device)
-            act = action[iter].to(self.device)
-            rew = reward[iter].to(self.device)
+        loader = DataLoader(self.dataset, batch_size = batch_size, shuffle = False)
+        for iter, (observation, next_observation, action, reward) in enumerate(loader):
+            observation = observation.to(self.device)
+            observation_next = next_observation.to(self.device)
+            action = action.to(self.device)
+            reward = reward.to(self.device)
             
             self.optim.zero_grad()
             
-            loss = self._calculate_loss(obs, obs_next, act, rew, self.policy_net, self.target_net)
+            loss = self._calculate_loss(observation, observation_next, action, reward, self.policy_net, self.target_net)
             loss.backward()
 
             for param in self.policy_net.parameters():
@@ -125,8 +125,7 @@ class QTrainer(object):
 
             final_loss.append(loss.detach().cpu())
 
-            if times != 1:
-                print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
+            print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
 
         if self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
             self.target_net = copy.deepcopy(self.policy_net)
@@ -189,9 +188,6 @@ class QTrainer(object):
             done = False
             skip_first = True
             _ = self.env.reset()
-
-            if mode == 'train':
-                self.dataset.new_episode()
 
             time_step = 0
             mini_counter = 0
