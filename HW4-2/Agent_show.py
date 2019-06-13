@@ -2,7 +2,7 @@ import time
 import argparse
 
 from lib.utils import *
-from lib.shower import PGShower
+from lib.shower import QShower
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -29,7 +29,7 @@ def init_parser(main):
     parser.add_argument('--sample_times', type = int, default = 4, help = 'How many games to check a checkpoint model.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')
-    parser.add_argument('--gray_scale', type = str2bool, default = False,
+    parser.add_argument('--gray_scale', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the input image would from RGB -> Gray scale.')
     parser.add_argument('--minus_observation',  type = str2bool, default = True,
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')

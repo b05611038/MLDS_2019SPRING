@@ -265,7 +265,7 @@ class QTrainer(object):
 
     def _valid_action(self, env):
         if env == 'Breakout-v0':
-            return [0, 1, 2, 3]
+            return [2, 3]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model

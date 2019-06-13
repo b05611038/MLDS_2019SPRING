@@ -17,14 +17,15 @@ class QShower(object):
 
         self.model_type = model_type
         self.model_name = model_name
+        self.test_probability = 0.0
 
         self.env = TestEnvironment(env)
         self.observation_preprocess = observation_preprocess
         self.valid_action = self._valid_action(env)
-        self.agent = PGAgent(model_name, model_type, self.device, observation_preprocess, 1, self.valid_action)
+        self.agent = QAgent(model_name, model_type, self.device, observation_preprocess, 1, self.valid_action)
         self.models = self._get_model_checkpoint(model_name)
         self.save_path = os.path.join('./output', model_name)
-        self.ploter = PGPlotMaker(model_name = model_name)
+        self.ploter = QPlotMaker(model_name = model_name)
 
     def show(self, sample_times):
         print('Plot training history ...')
@@ -38,7 +39,7 @@ class QShower(object):
             self.agent.model.eval()
             scores, videos = self._play_game(sample_times)
             index = self._max_score(scores)
-            maker.insert_video(videos[index])
+            maker.insert_video(np.asarray(videos[index]))
             maker.make(self.save_path, self.models[iter].split('/')[-1].replace('.pth', ''))
 
             print('Progress:', iter + 1, '/', len(self.models))
@@ -51,19 +52,33 @@ class QShower(object):
         videos = []
         for i in range(times):
             true_done = False
+            done = False
+            skip_first = True
             observation = self.env.reset()
             videos.append([])
-            self.agent.insert_memory(observation)
             scores.append(0.0)
 
-            while not done:
-                action, _processed, _model_out = self.agent.make_action(observation)
+            while not true_done:
+                if skip_first:
+                    observation, _r, _d, true_done, _ = self.env.step(self.agent.init_action())
+                    self.agent.insert_memory(observation)
+                    skip_first = False
+                    continue
+
+                if done:
+                    observation_next, reward, done, true_done, _ = self.env.step(self.agent.init_action())
+                    scores[i] += reward
+                    videos[i].append(observation)
+                    observation = observation_next
+                    continue
+
+                action, _processed, _model_out = self.agent.make_action(observation, p = self.test_probability)
                 observation_next, reward, done, true_done, _ = self.env.step(action)
                 scores[i] += reward
                 videos[i].append(observation)
                 observation = observation_next
 
-        return scores, np.asarray(videos)
+        return scores, videos
 
     def _max_score(self, scores):
         max_score = -1

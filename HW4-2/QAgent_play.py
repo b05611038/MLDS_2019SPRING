@@ -41,11 +41,11 @@ def init_parser(main):
             help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')
-    parser.add_argument('--gray_scale', type = str2bool, default = False,
+    parser.add_argument('--gray_scale', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the input image would from RGB -> Gray scale.')
     parser.add_argument('--minus_observation',  type = str2bool, default = True,
             help = 'Method of image preprocess, if true, input image would become the last state - now state.')
-    parser.add_argument('--decay_by_time', type = str2bool, default = False,
+    parser.add_argument('--decay_by_time', type = str2bool, default = True,
             help = 'Method of reward process, if true, reward would decay by time step.')
 
     opt = parser.parse_args()

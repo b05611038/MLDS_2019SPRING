@@ -2,7 +2,7 @@
 
 MLDS HW4-1
 
-## Training Model
+## Training Policy Gradient Agent
 
 Sample command, please use -h for further information
 

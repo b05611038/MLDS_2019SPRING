@@ -2,7 +2,7 @@
 
 MLDS HW4-3
 
-## Training Model
+## Training Actor-critic Agent
 
 Sample command, please use -h for further information
 
