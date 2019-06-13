@@ -34,6 +34,7 @@ def init_parser(main):
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
     parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
+    parser.add_argument('--buffer_size', type = int, default = 10000, help = 'Teh maximum data size can put into replaybuffer.')
     parser.add_argument('--episode_size', type = int, default = 2, help = 'How many games to play in an episode.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'The mini-batch_size wants to used in one iteration.')
     parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     opt = init_parser(__name__)
     observation_dict = construct_observation_preprocess_dict([opt.slice_scoreboard, opt.gray_scale, opt.minus_observation])
     reward_dict = construct_reward_preprocess_dict([opt.decay_by_time])
-    trainer = QTrainer(opt.model_type, opt.model_name, opt.random_action, observation_dict, reward_dict, opt.device,
+    trainer = QTrainer(opt.model_type, opt.model_name, opt.buffer_size, opt.random_action, observation_dict, reward_dict, opt.device,
             optimizer = opt.optimizer, policy = opt.Algorithm)
     trainer.play(opt.iterations, opt.episode_size, opt.batch_size, opt.checkpoint)
     trainer.save_config(opt)

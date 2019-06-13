@@ -17,8 +17,8 @@ from lib.agent.agent import QAgent
 
 
 class QTrainer(object):
-    def __init__(self, model_type, model_name, random_action, observation_preprocess, reward_preprocess, device,
-            optimizer = 'Adam', policy = 'Q', env = 'Breakout-v0'):
+    def __init__(self, model_type, model_name, buffer_size, random_action, observation_preprocess, reward_preprocess,
+            device, optimizer = 'Adam', policy = 'Q', env = 'Breakout-v0'):
 
         self.device = self._device_setting(device)
 
@@ -51,7 +51,7 @@ class QTrainer(object):
         self.eps = 10e-7
 
         self.reward_preprocess = reward_preprocess
-        self.dataset = ReplayBuffer(env = env, maximum = 10000, preprocess_dict = reward_preprocess)
+        self.dataset = ReplayBuffer(env = env, maximum = buffer_size, preprocess_dict = reward_preprocess)
         self.recorder = Recorder(['state', 'loss', 'mean_reward', 'test_reward', 'fix_seed_game_reward'])
         self.policy = policy
         self._init_loss_layer(policy)
@@ -85,7 +85,6 @@ class QTrainer(object):
 
                 state += 1
             else:
-                print(len(self.dataset.rewards), len(self.dataset.data))
                 continue
 
             if self.random_action:
