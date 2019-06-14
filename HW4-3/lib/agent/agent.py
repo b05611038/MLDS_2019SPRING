@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
-from lib.agent.model import Baseline
+from lib.agent.model import Baseline, PongLinear
 
 class ACAgent(Agent):
     def __init__(self, name, model_select, env_id, device,
@@ -122,6 +122,10 @@ class ACAgent(Agent):
     def _init_model(self, model_select, observation_size, action_size):
         if model_select == 'baseline':
             model = Baseline(image_size = observation_size, action_selection = action_size)
+            model = model.to(self.device)
+            return model
+        elif model_select == 'pong':
+            model = PongLinear(image_size = observation_size, action_selection = action_size)
             model = model.to(self.device)
             return model
         else:

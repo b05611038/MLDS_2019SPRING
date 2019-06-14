@@ -40,7 +40,7 @@ def init_parser(main):
     parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--gamma', type = float, default = 0.99, help = 'The hyperparameters used in state value estimation.')
     parser.add_argument('--env', type = str, default = 'Pong-v0', help = 'The game that you want actor-critic agent to play.')
-    parser.add_argument('--random_action', type = str2bool, default = False,
+    parser.add_argument('--random_action', type = str2bool, default = True,
             help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')

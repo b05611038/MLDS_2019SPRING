@@ -38,4 +38,32 @@ class Baseline(nn.Module):
         state_value = self.critic(x)
         return actor, state_value 
 
+class PongLinear(nn.Module):
+    def __init__(self, image_size, action_selection):
+        super(PongLinear, self).__init__()
+
+        self.image_size = image_size
+        self.action_selection = action_selection
+
+        self.main = nn.Sequential(
+                nn.Linear(np.prod(image_size), 256, bias = True),
+                nn.Dropout(p = 0.2),
+                nn.ReLU(),
+                )
+
+        self.actor = nn.Sequential(
+                nn.Linear(256, action_selection, bias = True),
+                nn.Softmax(dim = -1)
+                )
+
+        self.critic = nn.Linear(256, 1)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.main(x)
+        action = self.actor(x)
+        state_value = self.critic(x)
+
+        return action, state_value
+
 
