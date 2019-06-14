@@ -335,7 +335,7 @@ class ACTrainer(object):
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model
         print('Start saving model checkpoint ...')
-        self.agent.model = self.model
+        self.agent.model = self.policy_net
         if mode == 'episode':
             save_dir = os.path.join(self.save_dir, ('model_episode_' + str(state) + '.pth'))
             self.agent.save(save_dir)
