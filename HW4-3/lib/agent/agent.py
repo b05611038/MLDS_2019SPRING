@@ -4,21 +4,21 @@ import torch
 import torch.cuda as cuda
 from torch.distributions import Categorical
 
+from lib.utils import *
 from lib.agent.base import Agent
 from lib.agent.preprocess import Transform
-from lib.agent.model import Baseline, PongLinear
+from lib.agent.model import BaselineModel
 
 class ACAgent(Agent):
-    def __init__(self, name, model_select, env_id, device,
+    def __init__(self, name, model_select, device,
             observation_preprocess, max_memory_size, valid_action):
         super(ACAgent, self).__init__()
 
         self.name = name
-        self.env_id = env_id
         self.device = device
 
         self.observation_preprocess = observation_preprocess
-        self.transform = Transform(observation_preprocess, env_id, device)
+        self.transform = Transform(observation_preprocess, device)
 
         self.max_memory_size = max_memory_size
         self.valid_action = valid_action
@@ -31,7 +31,7 @@ class ACAgent(Agent):
         self.model = self.model.train()
         return self.model(observation.to(self.device))
 
-    def make_action(self, observation, mode = 'sample', p = None):
+    def make_action(self, observation):
         #return processed model observation and action
         if self.observation_preprocess['minus_observation'] == True:
             if self.memory is None:
@@ -43,21 +43,15 @@ class ACAgent(Agent):
         input_processed = processed.unsqueeze(0)
         output, _ = self.model(input_processed)
         self.insert_memory(observation)
-        action, action_index = self._decode_model_output(output, mode, p)
+        action = self._decode_model_output(output)
+        return action, processed.cpu().detach(), output.cpu().detach()
 
-        return action, action_index, output.detach().cpu(), processed.detach().cpu()
-
-    def init_action(self):
-        if self.env_id == 'Breakout-v0':
-            return 1
-        elif self.env_id == 'Pong-v0':
-            select = random.randint(0, len(self.valid_action) - 1)
-            return self.valid_action[select]
-        else:
-            raise NotImplementedError(self.env_id, 'is not in implemented environment.')
+    def random_action(self):
+        return self.valid_action[random.randint(0, len(self.valid_action) - 1)]
 
     def insert_memory(self, observation):
-        self.memory = self.transform(observation)
+        observation = self._preprocess(observation, mode = 'init')
+        self.memory = observation.to(self.device)
         return None
 
     def save(self, path):
@@ -70,49 +64,31 @@ class ACAgent(Agent):
         self.model.to(self.device)
         return None
 
-    def _decode_model_output(self, output, mode, p):
+    def _decode_model_output(self, output, mode = 'sample'):
         if mode == 'argmax':
-            if p is None:
-                _, action = torch.max(output, 1)
-                action_index = action.cpu().detach().numpy()[0]
-                return self.valid_action[action_index], action_index
-            else:
-                if random.random() < p:
-                    select = random.randint(0, len(self.valid_action))
-                    return self.valid_action[select], action_index
-                else:
-                    _, action = torch.max(output, 1)
-                    action_index = action.cpu().detach().numpy()[0]
-                    return self.valid_action[action_index], action_index
+            _, action = torch.max(output, 1)
+            action_index = action.cpu().detach().numpy()[0]
+            action = self.valid_action[action_index]
+            return action
         elif mode == 'sample':
-            if p is None:
-                try:
-                    output = output.detach().squeeze().cpu()
-                    m = Categorical(output)
-                    action_index = m.sample().numpy()
-                    return self.valid_action[action_index], action_index
-                except RuntimeError:
-                    #one numbers in  probability distribution is zero
-                    _, action = torch.max(output, 0)
-                    action_index = action.cpu().detach().numpy()[0]
-                    return self.valid_action[action_index], action_index
-            else:
-                if random.random() < p:
-                    select = random.randint(0, len(self.valid_action) - 1)
-                    return self.valid_action[select], select
-                else:
-                    try:
-                        output = output.detach().squeeze().cpu()
-                        m = Categorical(output)
-                        action_index = m.sample().numpy()
-                        return self.valid_action[action_index], action_index
-                    except RuntimeError:
-                        _, action = torch.max(output, 0)
-                        action_index = action.cpu().detach().numpy()[0]
-                        return self.valid_action[action_index], action_index
+            try:
+                output = output.detach().squeeze().cpu()
+                m = Categorical(output)
+                action_index = m.sample().numpy()
+                action = self.valid_action[action_index]
+                return action
+            except RuntimeError:
+                #one numbers in  probability distribution is zero
+                _, action = torch.max(output, 0)
+                action_index = action.cpu().detach().numpy()[0]
+                action = self.valid_action[action_index]
+                return action
 
-    def _preprocess(self, observation):
-        return self.transform(observation, self.memory)
+    def _preprocess(self, observation, mode = 'normal'):
+        if mode == 'normal':
+            return self.transform(observation, self.memory)
+        elif mode == 'init':
+            return self.transform.insert_init_memory(observation)
 
     def _check_memory(self):
         if len(self.memory) > self.max_memory_size:
@@ -121,11 +97,7 @@ class ACAgent(Agent):
 
     def _init_model(self, model_select, observation_size, action_size):
         if model_select == 'baseline':
-            model = Baseline(image_size = observation_size, action_selection = action_size)
-            model = model.to(self.device)
-            return model
-        elif model_select == 'pong':
-            model = PongLinear(image_size = observation_size, action_selection = action_size)
+            model = BaselineModel(image_size = np.prod(observation_size), action_selection = action_size)
             model = model.to(self.device)
             return model
         else:

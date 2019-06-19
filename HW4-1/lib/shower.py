@@ -38,7 +38,7 @@ class PGShower(object):
             self.agent.model.eval()
             scores, videos = self._play_game(sample_times)
             index = self._max_score(scores)
-            maker.insert_video(videos[index])
+            maker.insert_video(np.asarray(videos[index]))
             maker.make(self.save_path, self.models[iter].split('/')[-1].replace('.pth', ''))
 
             print('Progress:', iter + 1, '/', len(self.models))

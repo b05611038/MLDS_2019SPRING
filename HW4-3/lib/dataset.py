@@ -1,12 +1,10 @@
 import math
-import copy
 import random
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 from lib.utils import *
-
 
 class ReplayBuffer(Dataset):
     def __init__(self, env, maximum, preprocess_dict, gamma = 0.99):
@@ -21,7 +19,7 @@ class ReplayBuffer(Dataset):
 
         #one elemnet in datalist is a training pair with three elements: observation, reward, action
         #the pair relationship -> model(observation) ==> action ==> reward
-        self.episode_data = []
+        self.data = []
         self.rewards = []
         self.__insert_lock = []
 
@@ -31,19 +29,19 @@ class ReplayBuffer(Dataset):
 
     def new_episode(self):
         if len(self.rewards) > self.maximum:
-            self.episode_data = self.episode_data[1: ]
+            self.data = self.data[1: ]
             self.rewards = self.rewards[1: ]
             self.__insert_lock = self.__insert_lock[1: ]
 
-        self.episode_data.append([])
+        self.data.append([])
         self.rewards.append([])
         self.__insert_lock.append(False)
         return None
 
-    def insert(self, observation, next_observation, action):
+    def insert(self, observation, action):
         if self.__insert_lock[-1] != True:
             #not lock can append
-            self.episode_data[-1].append([observation, next_observation, action])
+            self.data[-1].append([observation.squeeze(), action])
         else:
             raise RuntimeError('Please use new_episode() before insert new episode information.')
 
@@ -51,14 +49,12 @@ class ReplayBuffer(Dataset):
 
     def insert_reward(self, reward, times, done):
         if self.__insert_lock[-1] != True:
-            if self.preprocess_dict['time_decay']:
-                decay_reward = (reward * (np.power(self.gamma, np.flip(np.arange(times))) / \
-                        np.sum(np.power(self.gamma, np.flip(np.arange(times)))))).tolist()
-
-                self.rewards[-1][len(self.rewards[-1]): ] = decay_reward
-            else:
-                normal_reward = (reward * np.repeat(1.0, times) / np.sum(np.repeat(1.0, times))).tolist()
-                self.rewards[-1][len(self.rewards[-1]): ] = normal_reward
+            for i in range(times):
+                if self.preprocess_dict['time_decay']:
+                    decay_reward = reward * math.pow((self.gamma), (times - 1 - i))
+                    self.rewards[-1].append(decay_reward)
+                else:
+                    self.rewards[-1].append(reward)
 
         else:
             raise RuntimeError('Please use new_episode() before insert new episode information.')
@@ -74,23 +70,17 @@ class ReplayBuffer(Dataset):
 
     def make(self, episode_size):
         self.observation = None
-        self.next_observation = None
         self.action = None
         self.reward = None
         for i in range(episode_size):
             select = random.randint(0, self.maximum - 1)
-            dataset = EpisodeSet(self.episode_data[select], self.rewards[select])
-            dataloader = DataLoader(dataset, batch_size = len(self.episode_data[select]), shuffle = False)
-            for iter, (obs, next_obs, act, rew) in enumerate(dataloader):
+            dataset = EpisodeSet(self.data[select], self.rewards[select])
+            dataloader = DataLoader(dataset, batch_size = len(self.data[select]), shuffle = False)
+            for iter, (obs, act, rew) in enumerate(dataloader):
                 if self.observation is None:
                     self.observation = obs.squeeze()
                 else:
                     self.observation = torch.cat((self.observation, obs.squeeze()), dim = 0)
-
-                if self.next_observation is None:
-                    self.next_observation = next_obs
-                else:
-                    self.next_observation = torch.cat((self.next_observation, next_obs.squeeze()), dim = 0)
 
                 if self.action is None:
                     self.action = act.squeeze()
@@ -111,12 +101,10 @@ class ReplayBuffer(Dataset):
         return None
 
     def __getitem__(self, index):
-        return self.observation[index].detach(), self.next_observation[index].detach(), \
-                self.action[index].detach(), self.reward[index].detach()
+        return self.observation[index].detach(), self.action[index].detach(), self.reward[index].detach()
 
     def __len__(self):
         return self.length
-
 
 class EpisodeSet(Dataset):
     def __init__(self, data, rewards):
@@ -126,7 +114,7 @@ class EpisodeSet(Dataset):
     def __getitem__(self, index):
         #return observation, action
         reward = torch.tensor(self.rewards[index]).float()
-        return self.data[index][0].float(), self.data[index][1].float(), self.data[index][2], reward
+        return self.data[index][0].float(), self.data[index][1].float(), reward
 
     def __len__(self):
         return len(self.data)

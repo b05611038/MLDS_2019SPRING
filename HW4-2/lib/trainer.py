@@ -18,7 +18,7 @@ from lib.agent.agent import QAgent
 
 class QTrainer(object):
     def __init__(self, model_type, model_name, buffer_size, random_action, observation_preprocess, reward_preprocess,
-            device, optimizer = 'Adam', policy = 'Q', env = 'Breakout-v0'):
+            device, optimizer = 'Adam', policy = 'Q_l1', env = 'Breakout-v0'):
 
         self.device = self._device_setting(device)
 
@@ -41,10 +41,7 @@ class QTrainer(object):
         self.save_dir = self._create_dir(model_name)
 
         self.policy_net = self.agent.model
-        if policy.split('_')[-1] == 'target':
-            self.target_net = copy.deepcopy(self.policy_net)
-        else:
-            self.target_net = None
+        self.target_net = copy.deepcopy(self.policy_net)
 
         self._select_optimizer(optimizer, policy)
 
@@ -126,9 +123,8 @@ class QTrainer(object):
 
             print('Mini batch progress:', iter + 1, '| Loss:', loss.detach().cpu().numpy())
 
-        if self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
-            self.target_net = copy.deepcopy(self.policy_net)
-            self.target_net = self.target_net.eval()
+        self.target_net = copy.deepcopy(self.policy_net)
+        self.target_net = self.target_net.eval()
 
         final_loss = torch.mean(torch.tensor(final_loss)).detach().numpy()
 
@@ -137,21 +133,14 @@ class QTrainer(object):
     def _calculate_loss(self, observation, next_observation, action, reward, policy_net, target_net):
         mask = self._one_hot(len(self.valid_action), action)
         mask = mask.byte().to(self.device)
-        if self.policy == 'Q_l1' or self.policy == 'Q_l2':
-            last_output = policy_net(observation)
-            state_action_values = torch.masked_select(last_output, mask = mask)
-            next_state_values, _ = torch.max(policy_net(next_observation), 1)
-            expected_state_action_values = (next_state_values * self.gamma) + reward
-            loss = self.loss_layer(state_action_values, expected_state_action_values)
-            return loss
-        elif self.policy == 'Q_l1_target' or self.policy == 'Q_l2_target':
-            last_output = policy_net(observation)
-            state_action_values = torch.masked_select(last_output, mask = mask)
-            next_state_values, _ = torch.max(target_net(next_observation), 1)
-            next_state_values = next_state_values.detach()
-            expected_state_action_values = (next_state_values * self.gamma) + reward
-            loss = self.loss_layer(state_action_values, expected_state_action_values)
-            return loss
+
+        last_output = policy_net(observation)
+        state_action_values = torch.masked_select(last_output, mask = mask)
+        next_state_values, _ = torch.max(target_net(next_observation), 1)
+        next_state_values = next_state_values.detach()
+        expected_state_action_values = (next_state_values * self.gamma) + reward
+        loss = self.loss_layer(state_action_values, expected_state_action_values)
+        return loss
 
     def _adjust_probability(self):
         self.random_probability -= self.decay
@@ -239,20 +228,20 @@ class QTrainer(object):
         return final_reward, reward_mean
 
     def _init_loss_layer(self, policy):
-        if policy == 'Q_l1' or policy == 'Q_l1_target':
+        if policy == 'Q_l1':
             self.loss_layer = nn.L1Loss()
-        elif policy == 'Q_l2' or policy == 'Q_l2_target':
+        elif policy == 'Q_l2':
             self.loss_layer = nn.MSELoss()
         else:
             raise NotImplementedError(policy, 'is not in implemented q-learning algorithm.')
 
     def _select_optimizer(self, select, policy):
         if select == 'SGD':
-            self.optim = SGD(self.policy_net.parameters(), lr = 0.01)
+            self.optim = SGD(self.policy_net.parameters(), lr = 1e-2)
         elif select == 'Adam':
-            self.optim = Adam(self.policy_net.parameters(), lr = 0.001)
+            self.optim = Adam(self.policy_net.parameters(), lr = 1e-4)
         elif select == 'RMSprop':
-            self.optim = RMSprop(self.policy_net.parameters(), lr = 0.01)
+            self.optim = RMSprop(self.policy_net.parameters(), lr = 5e-3)
         else:
             raise ValueError(select, 'is not valid option in choosing optimizer.')
 
@@ -260,7 +249,7 @@ class QTrainer(object):
 
     def _valid_action(self, env):
         if env == 'Breakout-v0':
-            return [2, 3]
+            return [1, 2, 3]
 
     def _save_checkpoint(self, state, mode = 'episode'):
         #save the state of the model

@@ -12,3 +12,5 @@ if __name__ == '__main__':
     word2vec.label_dict('./data/training_label.json', save = 'training_label_dict.pkl')
     word2vec.label_dict('./data/testing_label.json', save = 'testing_label_dict.pkl')
     save_object('word2vec.pkl', word2vec)
+
+

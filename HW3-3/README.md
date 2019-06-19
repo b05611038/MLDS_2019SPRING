@@ -1,10 +1,14 @@
-# Dependency
+# Style transfer Implementation by pytorch
+
+MLDS HW3-3, MUNIT training, refer from NVIDIA Corporation.
+
+## Dependency
 
 ```
 pytorch, torchvision, pyyaml, tensorboard, tensorboardX
 ```
 
-# Usage
+## Training
 
 ```
 python3 train_MUNIT.py --config configs/example.yaml

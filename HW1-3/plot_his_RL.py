@@ -48,7 +48,7 @@ def grab_RLhis(dataframe_list, sys_argv, mode):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print('Usage: python3 plot_his_AT.py [image name] [csv file 1] [csv file 2] ...')
+        print('Usage: python3 plot_his_RL.py [image name] [csv file 1] [csv file 2] ...')
         exit(0)
 
     dataframe_list = []

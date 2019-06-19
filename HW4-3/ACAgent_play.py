@@ -37,11 +37,8 @@ def init_parser(main):
     parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
     parser.add_argument('--episode_size', type = int, default = 4, help = 'How many games to play in an episode.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'batch_size using in dataloader argument.')
-    parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
-    parser.add_argument('--gamma', type = float, default = 0.99, help = 'The hyperparameters used in state value estimation.')
+    parser.add_argument('--checkpoint', type = int, default = 1000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--env', type = str, default = 'Pong-v0', help = 'The game that you want actor-critic agent to play.')
-    parser.add_argument('--random_action', type = str2bool, default = True,
-            help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
             help = 'Method of image preprocess, if true, the scoreboard part of image would not feed into model.')
     parser.add_argument('--gray_scale', type = str2bool, default = True,
@@ -65,8 +62,8 @@ if __name__ == '__main__':
     observation_dict = construct_observation_preprocess_dict([opt.slice_scoreboard, opt.gray_scale, opt.minus_observation])
     reward_dict = construct_reward_preprocess_dict([opt.decay_by_time, opt.reward_normalize])
 
-    trainer = ACTrainer(opt.model_type, opt.model_name, opt.random_action, observation_dict, reward_dict, opt.device,
-            gamma = opt.gamma, optimizer = opt.optimizer, policy = opt.Algorithm, env = opt.env)
+    trainer = ACTrainer(opt.model_type, opt.model_name, observation_dict, reward_dict, opt.device,
+            optimizer = opt.optimizer, policy = opt.Algorithm, env = opt.env)
 
     trainer.play(opt.iterations, opt.episode_size, opt.batch_size, opt.checkpoint)
     trainer.save_config(opt)

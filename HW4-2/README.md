@@ -2,6 +2,10 @@
 
 MLDS HW4-2
 
+## Enviroment
+
+Open AI gym atari game Breakout-v0
+
 ## Training Q-learning Agent
 
 Sample command, please use -h for further information
@@ -35,8 +39,6 @@ time_decay
 ```
 Q_l1 (Q Learning with smooth L1 loss)
 Q_l2 (Q Learning with mean squared loss)
-Q_l1_target (Q Learning with smooth L1 loss and target net)
-Q_l2_target (Q Learning with mean squared loss and target net)
 ```
 
 ## Playing Video Making

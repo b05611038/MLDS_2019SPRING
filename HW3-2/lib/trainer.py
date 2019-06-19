@@ -201,7 +201,7 @@ class Text2ImageGANTrainer():
 
     def _select_model(self, model_type):
         if model_type not in ['GAN', 'WGAN', 'WGAN_GP']:
-            raise ValueError('Please select correct GAN model. [GAN, DCGAN, WGAN, WGAN_GP]')
+            raise ValueError('Please select correct GAN model. [GAN, WGAN, WGAN_GP]')
 
         if model_type == 'GAN':
             model = Text2ImageGAN(self.dataset.text_length, self.env, 

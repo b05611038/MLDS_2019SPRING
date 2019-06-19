@@ -20,7 +20,7 @@ def prepro(o,image_size=[80, 80]):
     resized = scipy.misc.imresize(y, image_size)
     return np.expand_dims(resized.astype(np.float32), axis = 2)
 
-class HWAgent_AC(HWAgent):
+class HWAgent_PG(HWAgent):
     def __init__(self, env, args):
         """
         Initialize every things you need here.

@@ -1,0 +1,6 @@
+model_checkpoint_path: "model_epoch_10_gs_68240"
+all_model_checkpoint_paths: "model_epoch_06_gs_40944"
+all_model_checkpoint_paths: "model_epoch_07_gs_47768"
+all_model_checkpoint_paths: "model_epoch_08_gs_54592"
+all_model_checkpoint_paths: "model_epoch_09_gs_61416"
+all_model_checkpoint_paths: "model_epoch_10_gs_68240"

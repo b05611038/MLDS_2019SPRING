@@ -2,6 +2,10 @@
 
 MLDS HW4-1
 
+## Enviroment
+
+Open AI gym atari game Pong-v0
+
 ## Training Policy Gradient Agent
 
 Sample command, please use -h for further information
