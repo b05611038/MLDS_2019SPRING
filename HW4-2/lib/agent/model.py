@@ -5,22 +5,19 @@ import torch.nn.functional as F
 
 
 class BaselineModel(nn.Module):
-    def __init__(self, image_size, action_selection):
+    def __init__(self, image_size, action_selection, memories_length = 2):
         super(BaselineModel, self).__init__()
 
-        self.groups = 2
         self.image_size = image_size
         self.action_selection = action_selection
+        self.memories_length = memories_length
 
         self.conv = nn.Sequential(
-                nn.Conv2d(image_size[2], 16 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
-                nn.BatchNorm2d(16 * self.groups),
+                nn.Conv2d(image_size[2], 16, 5, stride = 2, padding = 2, bias = False),
                 nn.ReLU(),
-                nn.Conv2d(16 * self.groups, 32 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
-                nn.BatchNorm2d(32 *  self.groups),
+                nn.Conv2d(16, 32, 5, stride = 2, padding = 2, bias = False),
                 nn.ReLU(),
-                nn.Conv2d(32 * self.groups, 64, 5, stride = 2, bias = False),
-                nn.BatchNorm2d(64),
+                nn.Conv2d(32, 64, 5, stride = 2, bias = False),
                 nn.ReLU(),
                 )
 
@@ -34,22 +31,19 @@ class BaselineModel(nn.Module):
         return x
 
 class DualModel(nn.Module):
-    def __init__(self, image_size, action_selection):
+    def __init__(self, image_size, action_selection, memories_length = 2):
         super(DualModel, self).__init__()
 
-        self.groups = 2
         self.image_size = image_size
         self.action_selection = action_selection
+        self.memories_length = memories_length
 
         self.conv = nn.Sequential(
-                nn.Conv2d(image_size[2], 16 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
-                nn.BatchNorm2d(16 * self.groups),
+                nn.Conv2d(image_size[2], 16, 5, stride = 2, padding = 2, bias = False),
                 nn.ReLU(),
-                nn.Conv2d(16 * self.groups, 32 * self.groups, 5, stride = 2, padding = 2, bias = False, groups = self.groups),
-                nn.BatchNorm2d(32 *  self.groups),
+                nn.Conv2d(16, 32, 5, stride = 2, padding = 2, bias = False),
                 nn.ReLU(),
-                nn.Conv2d(32 * self.groups, 64, 5, stride = 2, bias = False),
-                nn.BatchNorm2d(64),
+                nn.Conv2d(32, 64, 5, stride = 2, bias = False),
                 nn.ReLU(),
                 )
 

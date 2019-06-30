@@ -33,11 +33,11 @@ def init_parser(main):
     parser.add_argument('device', type = int, help = 'device choosing for training. [-1 is cpu]')
 
     parser.add_argument('--optimizer', type = str, default = 'Adam', help = 'The optimizer you can choose.')
-    parser.add_argument('--iterations', type = int, default = 10000, help = 'How many episode to train your policy net.')
+    parser.add_argument('--iterations', type = int, default = 30000, help = 'How many episode to train your policy net.')
     parser.add_argument('--buffer_size', type = int, default = 10000, help = 'Teh maximum data size can put into replaybuffer.')
     parser.add_argument('--episode_size', type = int, default = 2, help = 'How many games to play in an episode.')
     parser.add_argument('--batch_size', type = int, default = 128, help = 'The mini-batch_size wants to used in one iteration.')
-    parser.add_argument('--checkpoint', type = int, default = 2000, help = 'The interval of saving a model checkpoint.')
+    parser.add_argument('--checkpoint', type = int, default = 3000, help = 'The interval of saving a model checkpoint.')
     parser.add_argument('--random_action', type = str2bool, default = True,
             help = 'Method of agent action space exploring, if true, the random probability would start from 1.0.')
     parser.add_argument('--slice_scoreboard', type = str2bool, default = True,
