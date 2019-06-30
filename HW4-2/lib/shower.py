@@ -108,7 +108,7 @@ class QShower(object):
     def _valid_action(self, env):
         if env == 'Breakout-v0':
             #only need up and down
-            return [2, 3]
+            return [1, 2, 3]
 
     def _device_setting(self, device):
         #select training environment and device

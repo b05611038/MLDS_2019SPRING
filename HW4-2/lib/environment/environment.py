@@ -102,15 +102,17 @@ class Environment(object):
         if not self.env.action_space.contains(action):
             raise ValueError('Ivalid action!!')
 
-        observation, reward, done, info = self.env.step(action)
+        observation, reward, true_done, info = self.env.step(action)
 
         lives = self.env.unwrapped.ale.lives()
         if lives < self.lives and lives > 0:
             done = True
+        else:
+            done = False
 
         self.lives = lives
 
-        return np.array(observation).astype('uint8'), reward, done, info
+        return np.array(observation).astype('uint8'), reward, done, true_done, info
 
     def render(self):
         return self.env.render(mode = 'rgb_array')

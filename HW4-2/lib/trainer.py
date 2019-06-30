@@ -151,18 +151,19 @@ class QTrainer(object):
 
     def _fix_game(self, agent):
         done = False
+        true_done = False
         skip_first = True
         observation = self.test_env.reset()
         final_reward = 0
-        while not done:
+        while not true_done:
             if skip_first:
-                observation, _r, _d, _ = self.env.step(agent.init_action())
+                observation, _r, _d, _td, _ = self.env.step(agent.init_action())
                 agent.insert_memory(observation)
                 skip_first = False
                 continue
 
             action, _action_index, _pro = self.agent.make_action(observation, p = self.random_probability)
-            observation_next, reward, done, _info = self.test_env.step(action)
+            observation_next, reward, done, true_done, _info = self.test_env.step(action)
             final_reward += reward
             observation = observation_next
 
@@ -174,24 +175,24 @@ class QTrainer(object):
         final_reward = []
         for i in range(rounds):
             done = False
+            true_done = False
             skip_first = True
             _ = self.env.reset()
 
-            time_step = 0
             mini_counter = 0
             final_reward.append(0.0)
             last_observation = None
             last_action = None
             last_reward = None
-            while not done:
+            while not true_done:
                 if skip_first:
-                    observation, _r, _d, _ = self.env.step(agent.init_action())
+                    observation, _r, _d, _td, _ = self.env.step(agent.init_action())
                     agent.insert_memory(observation)
                     skip_first = False
                     continue
 
                 action, action_index, processed = agent.make_action(observation, p = self.random_probability)
-                observation_next, reward, done, _ = self.env.step(action)
+                observation_next, reward, done, true_done, _ = self.env.step(action)
                 final_reward[i] += reward
 
                 if mode == 'train' and last_observation is not None:
@@ -201,12 +202,16 @@ class QTrainer(object):
                     else:
                         self.dataset.insert(last_observation, processed, last_action)
                         mini_counter += 1
-                        self.dataset.insert_reward(reward, mini_counter, done)
+                        self.dataset.insert_reward(reward, mini_counter)
                         mini_counter = 0
 
-                    if done:
-                        self.dataset.insert_reward(-1.0, mini_counter, done)
+                    if done or true_done:
+                        self.dataset.insert_reward(-1.0, mini_counter)
                         mini_counter = 0
+                        skip_first = True
+                        last_observation = None
+                        last_action = None
+                        last_reward = None
 
                 elif mode == 'test':
                     pass
@@ -216,7 +221,6 @@ class QTrainer(object):
                 last_reward = reward
 
                 observation = observation_next
-                time_step += 1
 
             if i % 5 == 4:
                 print('Progress:', i + 1, '/', rounds)

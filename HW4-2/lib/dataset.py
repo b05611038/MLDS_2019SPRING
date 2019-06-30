@@ -32,11 +32,10 @@ class ReplayBuffer(Dataset):
 
         return None
 
-    def insert_reward(self, reward, times, done):
+    def insert_reward(self, reward, times):
         if self.preprocess_dict['time_decay']:
             decay_reward = (reward * (np.power(self.gamma, np.flip(np.arange(times))) / \
                     np.sum(np.power(self.gamma, np.flip(np.arange(times)))))).tolist()
-
             self.rewards[len(self.rewards): ] = decay_reward
         else:
             normal_reward = (reward * np.repeat(1.0, times) / np.sum(np.repeat(1.0, times))).tolist()
